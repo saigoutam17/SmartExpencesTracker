@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Settings | SmartExpenseTracker</title>
+
+    <style>
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family:
+                Inter,
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                sans-serif;
+
+            background: #f5f7fb;
+            color: #1f2937;
+            min-height: 100vh;
+        }
+
+        /* =========================================
+           NAVBAR
+        ========================================= */
+
+        .navbar {
+            height: 70px;
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+
+            padding: 0 40px;
+
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .brand {
+            font-size: 22px;
+            font-weight: 800;
+            color: #111827;
+            text-decoration: none;
+        }
+
+        .brand span {
+            color: #4f46e5;
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .username {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .logout {
+            text-decoration: none;
+            color: #ef4444;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        /* =========================================
+           PAGE
+        ========================================= */
+
+        .container {
+            max-width: 1100px;
+            margin: 40px auto;
+            padding: 0 24px;
+        }
+
+        .page-header {
+            margin-bottom: 30px;
+        }
+
+        .page-header h1 {
+            font-size: 32px;
+            font-weight: 800;
+            color: #111827;
+        }
+
+        .page-header p {
+            margin-top: 8px;
+            color: #6b7280;
+            font-size: 15px;
+        }
+
+        /* =========================================
+           SETTINGS CARD
+        ========================================= */
+
+        .settings-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 18px;
+            margin-bottom: 22px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+        }
+
+        .section-header {
+            padding: 24px 28px;
+            border-bottom: 1px solid #eef0f3;
+        }
+
+        .section-header h2 {
+            font-size: 18px;
+            color: #111827;
+        }
+
+        .section-header p {
+            margin-top: 5px;
+            color: #6b7280;
+            font-size: 13px;
+        }
+
+        .section-body {
+            padding: 26px 28px;
+        }
+
+        /* =========================================
+           FORM
+        ========================================= */
+
+        .form-group {
+            margin-bottom: 22px;
+        }
+
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+
+        label {
+            display: block;
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #374151;
+        }
+
+        select {
+            width: 100%;
+            max-width: 400px;
+
+            padding: 12px 14px;
+
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
+
+            background: white;
+            color: #111827;
+
+            font-size: 14px;
+
+            outline: none;
+        }
+
+        select:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        /* =========================================
+           SETTING ROW
+        ========================================= */
+
+        .setting-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+
+            padding: 17px 0;
+
+            border-bottom: 1px solid #f0f1f3;
+        }
+
+        .setting-row:last-child {
+            border-bottom: none;
+        }
+
+        .setting-info {
+            padding-right: 20px;
+        }
+
+        .setting-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #111827;
+        }
+
+        .setting-description {
+            margin-top: 4px;
+            font-size: 13px;
+            color: #6b7280;
+            line-height: 1.5;
+        }
+
+        /* =========================================
+           TOGGLE
+        ========================================= */
+
+        .toggle {
+            position: relative;
+            width: 48px;
+            height: 26px;
+            flex-shrink: 0;
+        }
+
+        .toggle input {
+            display: none;
+        }
+
+        .slider {
+            position: absolute;
+            inset: 0;
+
+            background: #d1d5db;
+
+            border-radius: 30px;
+
+            cursor: pointer;
+
+            transition: 0.25s;
+        }
+
+        .slider::before {
+            content: "";
+
+            position: absolute;
+
+            width: 20px;
+            height: 20px;
+
+            left: 3px;
+            top: 3px;
+
+            background: white;
+
+            border-radius: 50%;
+
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+
+            transition: 0.25s;
+        }
+
+        .toggle input:checked + .slider {
+            background: #4f46e5;
+        }
+
+        .toggle input:checked + .slider::before {
+            transform: translateX(22px);
+        }
+
+        /* =========================================
+           SAVE BUTTON
+        ========================================= */
+
+        .save-container {
+            display: flex;
+            justify-content: flex-end;
+
+            margin-top: 28px;
+        }
+
+        .save-btn {
+            border: none;
+
+            background: #4f46e5;
+            color: white;
+
+            padding: 13px 28px;
+
+            border-radius: 10px;
+
+            font-size: 14px;
+            font-weight: 700;
+
+            cursor: pointer;
+
+            transition: 0.2s;
+        }
+
+        .save-btn:hover {
+            background: #4338ca;
+            transform: translateY(-1px);
+        }
+
+        /* =========================================
+           DANGER ZONE
+        ========================================= */
+
+        .danger {
+            border-color: #fecaca;
+        }
+
+        .danger .section-header {
+            background: #fff7f7;
+            border-bottom-color: #fecaca;
+        }
+
+        .danger .section-header h2 {
+            color: #dc2626;
+        }
+
+        .danger-text {
+            font-size: 14px;
+            color: #6b7280;
+            line-height: 1.6;
+        }
+
+        .delete-btn {
+            margin-top: 18px;
+
+            padding: 11px 18px;
+
+            border: 1px solid #ef4444;
+            background: white;
+            color: #dc2626;
+
+            border-radius: 9px;
+
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .delete-btn:hover {
+            background: #fef2f2;
+        }
+
+        /* =========================================
+           SUCCESS MESSAGE
+        ========================================= */
+
+        .success-message {
+            display: none;
+
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+
+            color: #047857;
+
+            padding: 12px 16px;
+
+            border-radius: 10px;
+
+            margin-bottom: 20px;
+
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        /* =========================================
+           RESPONSIVE
+        ========================================= */
+
+        @media (max-width: 700px) {
+
+            .navbar {
+                padding: 0 18px;
+            }
+
+            .username {
+                display: none;
+            }
+
+            .container {
+                margin-top: 25px;
+                padding: 0 15px;
+            }
+
+            .page-header h1 {
+                font-size: 26px;
+            }
+
+            .section-body {
+                padding: 20px;
+            }
+
+            .section-header {
+                padding: 20px;
+            }
+
+            .setting-row {
+                gap: 15px;
+            }
+
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+<!-- =========================================
+     NAVBAR
+========================================= -->
+
+<nav class="navbar">
+
+    <a href="/" class="brand">
+        Smart<span>Expense</span>Tracker
+    </a>
+
+    <div class="nav-right">
+
+        <span class="username">
+            {{ username }}
+        </span>
+
+        <a href="/" class="logout"
+           style="color:#4f46e5;">
+            Dashboard
+        </a>
+
+        <a href="/logout" class="logout">
+            Logout
+        </a>
+
+    </div>
+
+</nav>
+
+
+<!-- =========================================
+     MAIN
+========================================= -->
+
+<main class="container">
+
+
+    <div class="page-header">
+
+        <h1>Settings</h1>
+
+        <p>
+            Manage your preferences, AI features,
+            notifications and privacy.
+        </p>
+
+    </div>
+
+
+    <div id="successMessage"
+         class="success-message">
+
+        ✓ Settings saved successfully.
+
+    </div>
+
+
+    <!-- =====================================
+         SETTINGS FORM
+    ====================================== -->
+
+    <form method="POST"
+          action="/settings"
+          id="settingsForm">
+
+
+        <!-- =================================
+             APPEARANCE
+        ================================== -->
+
+        <div class="settings-card">
+
+            <div class="section-header">
+
+                <h2>Appearance</h2>
+
+                <p>
+                    Customize how SmartExpenseTracker
+                    looks and behaves.
+                </p>
+
+            </div>
+
+
+            <div class="section-body">
+
+                <div class="form-group">
+
+                    <label for="theme">
+                        Theme
+                    </label>
+
+                    <select
+                        name="theme"
+                        id="theme">
+
+                        <option value="system"
+                            {% if settings["theme"] == "system" %}
+                                selected
+                            {% endif %}>
+                            System Default
+                        </option>
+
+                        <option value="light"
+                            {% if settings["theme"] == "light" %}
+                                selected
+                            {% endif %}>
+                            Light
+                        </option>
+
+                        <option value="dark"
+                            {% if settings["theme"] == "dark" %}
+                                selected
+                            {% endif %}>
+                            Dark
+                        </option>
+
+                    </select>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- =================================
+             FINANCIAL PREFERENCES
+        ================================== -->
+
+        <div class="settings-card">
+
+            <div class="section-header">
+
+                <h2>Financial Preferences</h2>
+
+                <p>
+                    Configure your preferred currency
+                    and financial display settings.
+                </p>
+
+            </div>
+
+
+            <div class="section-body">
+
+                <div class="form-group">
+
+                    <label for="currency">
+                        Currency
+                    </label>
+
+                    <select
+                        name="currency"
+                        id="currency">
+
+                        <option value="INR"
+                            {% if settings["currency"] == "INR" %}
+                                selected
+                            {% endif %}>
+                            🇮🇳 Indian Rupee (₹)
+                        </option>
+
+                        <option value="USD"
+                            {% if settings["currency"] == "USD" %}
+                                selected
+                            {% endif %}>
+                            🇺🇸 US Dollar ($)
+                        </option>
+
+                        <option value="EUR"
+                            {% if settings["currency"] == "EUR" %}
+                                selected
+                            {% endif %}>
+                            🇪🇺 Euro (€)
+                        </option>
+
+                        <option value="GBP"
+                            {% if settings["currency"] == "GBP" %}
+                                selected
+                            {% endif %}>
+                            🇬🇧 British Pound (£)
+                        </option>
+
+                        <option value="JPY"
+                            {% if settings["currency"] == "JPY" %}
+                                selected
+                            {% endif %}>
+                            🇯🇵 Japanese Yen (¥)
+                        </option>
+
+                    </select>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- =================================
+             AI PREFERENCES
+        ================================== -->
+
+        <div class="settings-card">
+
+            <div class="section-header">
+
+                <h2>AI Preferences</h2>
+
+                <p>
+                    Control the AI-powered features
+                    available in your account.
+                </p>
+
+            </div>
+
+
+            <div class="section-body">
+
+
+                <!-- MASTER AI -->
+
+                <div class="setting-row">
+
+                    <div class="setting-info">
+
+                        <div class="setting-title">
+                            AI Features
+                        </div>
+
+                        <div class="setting-description">
+                            Enable or disable all
+                            AI-powered features.
+                        </div>
+
+                    </div>
+
+
+                    <label class="toggle">
+
+                        <input
+                            type="checkbox"
+                            name="ai_enabled"
+
+                            {% if settings["ai_enabled"] %}
+                                checked
+                            {% endif %}
+                        >
+
+                        <span class="slider"></span>
+
+                    </label>
+
+                </div>
+
+
+                <!-- AI CATEGORIZATION -->
+
+                <div class="setting-row">
+
+                    <div class="setting-info">
+
+                        <div class="setting-title">
+                            AI Expense Categorization
+                        </div>
+
+                        <div class="setting-description">
+                            Automatically suggest categories
+                            for your expenses.
+                        </div>
+
+                    </div>
+
+
+                    <label class="toggle">
+
+                        <input
+                            type="checkbox"
+                            name="ai_categorization"
+
+                            {% if settings["ai_categorization"] %}
+                                checked
+                            {% endif %}
+                        >
+
+                        <span class="slider"></span>
+
+                    </label>
+
+                </div>
+
+
+                <!-- AI ANALYSIS -->
+
+                <div class="setting-row">
+
+                    <div class="setting-info">
+
+                        <div class="setting-title">
+                            AI Spending Analysis
+                        </div>
+
+                        <div class="setting-description">
+                            Generate intelligent insights
+                            about your spending habits.
+                        </div>
+
+                    </div>
+
+
+                    <label class="toggle">
+
+                        <input
+                            type="checkbox"
+                            name="ai_analysis"
+
+                            {% if settings["ai_analysis"] %}
+                                checked
+                            {% endif %}
+                        >
+
+                        <span class="slider"></span>
+
+                    </label>
+
+                </div>
+
+
+                <!-- AI CHATBOT -->
+
+                <div class="setting-row">
+
+                    <div class="setting-info">
+
+                        <div class="setting-title">
+                            AI Financial Assistant
+                        </div>
+
+                        <div class="setting-description">
+                            Allow the AI assistant to answer
+                            questions about your finances.
+                        </div>
+
+                    </div>
+
+
+                    <label class="toggle">
+
+                        <input
+                            type="checkbox"
+                            name="ai_chatbot"
+
+                            {% if settings["ai_chatbot"] %}
+                                checked
+                            {% endif %}
+                        >
+
+                        <span class="slider"></span>
+
+                    </label>
+
+                </div>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- =================================
+             NOTIFICATIONS
+        ================================== -->
+
+        <div class="settings-card">
+
+            <div class="section-header">
+
+                <h2>Notifications</h2>
+
+                <p>
+                    Choose which financial notifications
+                    you want to receive.
+                </p>
+
+            </div>
+
+
+            <div class="section-body">
+
+
+                <!-- BUDGET ALERTS -->
+
+                <div class="setting-row">
+
+                    <div class="setting-info">
+
+                        <div class="setting-title">
+                            Budget Alerts
+                        </div>
+
+                        <div class="setting-description">
+                            Get alerts when your spending
+                            approaches your budget.
+                        </div>
+
+                    </div>
+
+
+                    <label class="toggle">
+
+                        <input
+                            type="checkbox"
+                            name="budget_alerts"
+
+                            {% if settings["budget_alerts"] %}
+                                checked
+                            {% endif %}
+                        >
+
+                        <span class="slider"></span>
+
+                    </label>
+
+                </div>
+
+
+                <!-- WEEKLY -->
+
+                <div class="setting-row">
+
+                    <div class="setting-info">
+
+                        <div class="setting-title">
+                            Weekly Summary
+                        </div>
+
+                        <div class="setting-description">
+                            Receive a summary of your weekly
+                            spending activity.
+                        </div>
+
+                    </div>
+
+
+                    <label class="toggle">
+
+                        <input
+                            type="checkbox"
+                            name="weekly_summary"
+
+                            {% if settings["weekly_summary"] %}
+                                checked
+                            {% endif %}
+                        >
+
+                        <span class="slider"></span>
+
+                    </label>
+
+                </div>
+
+
+                <!-- MONTHLY -->
+
+                <div class="setting-row">
+
+                    <div class="setting-info">
+
+                        <div class="setting-title">
+                            Monthly Report
+                        </div>
+
+                        <div class="setting-description">
+                            Receive a monthly financial
+                            spending report.
+                        </div>
+
+                    </div>
+
+
+                    <label class="toggle">
+
+                        <input
+                            type="checkbox"
+                            name="monthly_report"
+
+                            {% if settings["monthly_report"] %}
+                                checked
+                            {% endif %}
+                        >
+
+                        <span class="slider"></span>
+
+                    </label>
+
+                </div>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- =================================
+             PRIVACY
+        ================================== -->
+
+        <div class="settings-card">
+
+            <div class="section-header">
+
+                <h2>Data & Privacy</h2>
+
+                <p>
+                    Control how your financial data
+                    is used by AI features.
+                </p>
+
+            </div>
+
+
+            <div class="section-body">
+
+
+                <div class="setting-row">
+
+                    <div class="setting-info">
+
+                        <div class="setting-title">
+                            AI History
+                        </div>
+
+                        <div class="setting-description">
+                            Allow AI features to use your
+                            previous expense history for
+                            personalized results.
+                        </div>
+
+                    </div>
+
+
+                    <label class="toggle">
+
+                        <input
+                            type="checkbox"
+                            name="ai_history_enabled"
+
+                            {% if settings["ai_history_enabled"] %}
+                                checked
+                            {% endif %}
+                        >
+
+                        <span class="slider"></span>
+
+                    </label>
+
+                </div>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- =================================
+             SAVE
+        ================================== -->
+
+        <div class="save-container">
+
+            <button
+                type="submit"
+                class="save-btn">
+
+                Save Changes
+
+            </button>
+
+        </div>
+
+
+    </form>
+
+
+    <!-- =====================================
+         DANGER ZONE
+    ====================================== -->
+
+    <div class="settings-card danger">
+
+        <div class="section-header">
+
+            <h2>Danger Zone</h2>
+
+            <p>
+                Actions in this section can affect
+                your account and data.
+            </p>
+
+        </div>
+
+
+        <div class="section-body">
+
+            <p class="danger-text">
+
+                Account deletion is currently disabled
+                until the secure account deletion system
+                is implemented.
+
+            </p>
+
+
+            <button
+                type="button"
+                class="delete-btn"
+                onclick="alert('Account deletion will be available in a future version.')">
+
+                Delete Account
+
+            </button>
+
+        </div>
+
+    </div>
+
+
+</main>
+
+
+<script>
+
+    /*
+     * Show a small confirmation after
+     * settings are submitted.
+     */
+
+    const form =
+        document.getElementById("settingsForm");
+
+    const successMessage =
+        document.getElementById("successMessage");
+
+
+    form.addEventListener(
+        "submit",
+        function () {
+
+            successMessage.style.display = "block";
+
+        }
+    );
+
+
+    /*
+     * Master AI switch
+     *
+     * When AI Features is disabled,
+     * visually disable individual AI switches.
+     */
+
+    const masterAI =
+        document.querySelector(
+            'input[name="ai_enabled"]'
+        );
+
+    const aiOptions = [
+        'input[name="ai_categorization"]',
+        'input[name="ai_analysis"]',
+        'input[name="ai_chatbot"]'
+    ];
+
+
+    function updateAIOptions() {
+
+        aiOptions.forEach(function(selector) {
+
+            const checkbox =
+                document.querySelector(selector);
+
+            if (!checkbox) {
+                return;
+            }
+
+            checkbox.disabled =
+                !masterAI.checked;
+
+        });
+
+    }
+
+
+    if (masterAI) {
+
+        masterAI.addEventListener(
+            "change",
+            updateAIOptions
+        );
+
+        updateAIOptions();
+
+    }
+
+</script>
+
+
+</body>
+
+</html>

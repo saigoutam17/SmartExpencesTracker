@@ -1,34 +1,203 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
-    <title>Login - Smart Expense Tracker</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Login | Smart Expense Tracker</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    #0f172a,
+                    #1e293b,
+                    #312e81
+                );
+        }
+
+        .container {
+            width: 400px;
+            padding: 40px;
+
+            background: rgba(255, 255, 255, 0.95);
+
+            border-radius: 20px;
+
+            box-shadow:
+                0 20px 50px rgba(0, 0, 0, 0.4);
+        }
+
+        .logo {
+            text-align: center;
+            font-size: 42px;
+            margin-bottom: 10px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #111827;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #6b7280;
+            margin-bottom: 30px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #374151;
+        }
+
+        input {
+            width: 100%;
+            padding: 13px;
+
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
+
+            margin-bottom: 20px;
+
+            font-size: 15px;
+
+            outline: none;
+        }
+
+        input:focus {
+            border-color: #6366f1;
+
+            box-shadow:
+                0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
+
+        button {
+            width: 100%;
+            padding: 13px;
+
+            border: none;
+            border-radius: 10px;
+
+            background: #4f46e5;
+            color: white;
+
+            font-size: 16px;
+            font-weight: bold;
+
+            cursor: pointer;
+
+            transition: 0.2s;
+        }
+
+        button:hover {
+            background: #4338ca;
+            transform: translateY(-1px);
+        }
+
+        .register {
+            text-align: center;
+            margin-top: 25px;
+
+            color: #6b7280;
+        }
+
+        .register a {
+            color: #4f46e5;
+            font-weight: bold;
+            text-decoration: none;
+        }
+
+        .register a:hover {
+            text-decoration: underline;
+        }
+
+        .security {
+            text-align: center;
+            margin-top: 20px;
+
+            font-size: 13px;
+            color: #9ca3af;
+        }
+    </style>
 </head>
 
 <body>
 
-    <h1>Smart Expense Tracker</h1>
-    <h2>Login</h2>
+    <div class="container">
 
-    <form method="POST" action="/login">
+        <div class="logo">💰</div>
 
-        <label>Email:</label>
-        <input type="email" name="email" required>
+        <h1>Smart Expense Tracker</h1>
 
-        <br><br>
+        <p class="subtitle">
+            Manage your money smarter with AI
+        </p>
 
-        <label>Password:</label>
-        <input type="password" name="password" required>
+        <form method="POST" action="/login">
 
-        <br><br>
+            <label for="email">
+                Email
+            </label>
 
-        <button type="submit">Login</button>
+            <input
+                type="email"
+                id="email"
+                name="email"
+                placeholder="Enter your email"
+                required
+            >
 
-    </form>
+            <label for="password">
+                Password
+            </label>
 
-    <p>
-        Don't have an account?
-        <a href="/register">Register</a>
-    </p>
+            <input
+                type="password"
+                id="password"
+                name="password"
+                placeholder="Enter your password"
+                required
+            >
+
+            <button type="submit">
+                Login
+            </button>
+
+        </form>
+
+        <div class="register">
+
+            Don't have an account?
+
+            <a href="/register">
+                Create one
+            </a>
+
+        </div>
+
+        <div class="security">
+            🔒 Your financial data is protected
+        </div>
+
+    </div>
 
 </body>
+
 </html>

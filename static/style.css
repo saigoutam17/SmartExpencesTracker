@@ -785,3 +785,31 @@ body {
     margin-top: 0;
 
 }
+.action {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    padding: 20px;
+    border-radius: 12px;
+    transition: 0.2s ease;
+}
+
+.action:hover {
+    text-decoration: none;
+    transform: translateY(-2px);
+}
+
+.action strong {
+    color: #4f46e5;
+    font-size: 18px;
+}
+
+.action small {
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.action-icon {
+    font-size: 24px;
+    margin-right: 8px;
+}

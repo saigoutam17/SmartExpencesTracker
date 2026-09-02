@@ -25,9 +25,9 @@ from ai.analyst import analyze_spending
 from ai.chatbot import ask_financial_ai
 
 
-# ==================================================
+# ============================================================
 # APP CONFIG
-# ==================================================
+# ============================================================
 
 load_dotenv()
 
@@ -41,23 +41,46 @@ app.secret_key = os.getenv(
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 
-# ==================================================
-# DATABASE CONNECTION
-# ==================================================
+# ============================================================
+# DATABASE
+# ============================================================
 
 def get_db_connection():
-
-    connection = psycopg2.connect(
+    return psycopg2.connect(
         DATABASE_URL,
         cursor_factory=RealDictCursor
     )
 
-    return connection
+
+# ============================================================
+# USER SETTINGS HELPER
+# ============================================================
+
+def get_user_settings(user_id):
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM user_settings
+        WHERE user_id = %s
+        """,
+        (user_id,)
+    )
+
+    settings = cursor.fetchone()
+
+    cursor.close()
+    connection.close()
+
+    return settings
 
 
-# ==================================================
+# ============================================================
 # LOGIN REQUIRED
-# ==================================================
+# ============================================================
 
 def login_required(view):
 
@@ -72,9 +95,9 @@ def login_required(view):
     return wrapped_view
 
 
-# ==================================================
+# ============================================================
 # REGISTER
-# ==================================================
+# ============================================================
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -82,27 +105,14 @@ def register():
     if request.method == "GET":
         return render_template("register.html")
 
-    username = request.form.get(
-        "username",
-        ""
-    ).strip()
-
-    email = request.form.get(
-        "email",
-        ""
-    ).strip().lower()
-
-    password = request.form.get(
-        "password",
-        ""
-    )
+    username = request.form.get("username", "").strip()
+    email = request.form.get("email", "").strip().lower()
+    password = request.form.get("password", "")
 
     if not username or not email or not password:
-
         return "All fields are required", 400
 
     if len(password) < 6:
-
         return "Password must contain at least 6 characters", 400
 
     password_hash = generate_password_hash(password)
@@ -133,12 +143,24 @@ def register():
         user = cursor.fetchone()
 
         # Assign old migrated expenses
-        # to the first registered user
         cursor.execute(
             """
             UPDATE expenses
             SET user_id = %s
             WHERE user_id IS NULL
+            """,
+            (user["id"],)
+        )
+
+        # Create default settings
+        cursor.execute(
+            """
+            INSERT INTO user_settings
+            (
+                user_id
+            )
+            VALUES (%s)
+            ON CONFLICT (user_id) DO NOTHING
             """,
             (user["id"],)
         )
@@ -165,26 +187,18 @@ def register():
     return redirect("/")
 
 
-# ==================================================
+# ============================================================
 # LOGIN
-# ==================================================
+# ============================================================
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
 
     if request.method == "GET":
-
         return render_template("login.html")
 
-    email = request.form.get(
-        "email",
-        ""
-    ).strip().lower()
-
-    password = request.form.get(
-        "password",
-        ""
-    )
+    email = request.form.get("email", "").strip().lower()
+    password = request.form.get("password", "")
 
     connection = get_db_connection()
     cursor = connection.cursor()
@@ -206,11 +220,13 @@ def login():
     cursor.close()
     connection.close()
 
-    if user is None or not check_password_hash(
+    if user is None:
+        return "Invalid email or password", 401
+
+    if not check_password_hash(
         user["password_hash"],
         password
     ):
-
         return "Invalid email or password", 401
 
     session["user_id"] = user["id"]
@@ -219,9 +235,9 @@ def login():
     return redirect("/")
 
 
-# ==================================================
+# ============================================================
 # LOGOUT
-# ==================================================
+# ============================================================
 
 @app.route("/logout")
 def logout():
@@ -231,9 +247,9 @@ def logout():
     return redirect("/login")
 
 
-# ==================================================
-# CREATE TABLES
-# ==================================================
+# ============================================================
+# DATABASE INITIALIZATION
+# ============================================================
 
 def init_db():
 
@@ -267,7 +283,6 @@ def init_db():
         """
     )
 
-    # Make sure user_id exists
     cursor.execute(
         """
         ALTER TABLE expenses
@@ -285,43 +300,66 @@ def init_db():
         """
     )
 
+    # USER SETTINGS
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS user_settings (
+            user_id BIGINT PRIMARY KEY,
+
+            currency TEXT DEFAULT 'INR',
+
+            theme TEXT DEFAULT 'system',
+
+            ai_enabled BOOLEAN DEFAULT TRUE,
+
+            ai_categorization BOOLEAN DEFAULT TRUE,
+
+            ai_analysis BOOLEAN DEFAULT TRUE,
+
+            ai_chatbot BOOLEAN DEFAULT TRUE,
+
+            budget_alerts BOOLEAN DEFAULT TRUE,
+
+            weekly_summary BOOLEAN DEFAULT TRUE,
+
+            monthly_report BOOLEAN DEFAULT TRUE,
+
+            ai_history_enabled BOOLEAN DEFAULT TRUE,
+
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+
+            updated_at TIMESTAMPTZ DEFAULT NOW(),
+
+            CONSTRAINT user_settings_user_fk
+                FOREIGN KEY (user_id)
+                REFERENCES users(id)
+                ON DELETE CASCADE
+        )
+        """
+    )
+
     connection.commit()
 
     cursor.close()
     connection.close()
 
 
-# ==================================================
-# HOME PAGE
-# ==================================================
+# ============================================================
+# DASHBOARD
+# ============================================================
 
 @app.route("/")
 @login_required
 def home():
 
+    user_id = session["user_id"]
+
     connection = get_db_connection()
     cursor = connection.cursor()
 
-    user_id = session["user_id"]
-
-    # ------------------------------------------------
-    # SEARCH / FILTER
-    # ------------------------------------------------
-
-    search = request.args.get(
-        "search",
-        ""
-    )
-
-    category_filter = request.args.get(
-        "category",
-        ""
-    )
-
-    date_filter = request.args.get(
-        "date_filter",
-        ""
-    )
+    search = request.args.get("search", "")
+    category_filter = request.args.get("category", "")
+    date_filter = request.args.get("date_filter", "")
 
     query = """
         SELECT *
@@ -340,13 +378,10 @@ def home():
             )
         """
 
-        parameters.append(
+        parameters.extend([
+            "%" + search + "%",
             "%" + search + "%"
-        )
-
-        parameters.append(
-            "%" + search + "%"
-        )
+        ])
 
     if category_filter:
 
@@ -354,29 +389,22 @@ def home():
             AND category = %s
         """
 
-        parameters.append(
-            category_filter
-        )
+        parameters.append(category_filter)
 
     if date_filter == "this_month":
 
         query += """
-            AND DATE_TRUNC(
-                'month',
-                date
-            ) = DATE_TRUNC(
-                'month',
-                CURRENT_DATE
-            )
+            AND DATE_TRUNC('month', date)
+            =
+            DATE_TRUNC('month', CURRENT_DATE)
         """
 
     elif date_filter == "last_month":
 
         query += """
-            AND DATE_TRUNC(
-                'month',
-                date
-            ) = DATE_TRUNC(
+            AND DATE_TRUNC('month', date)
+            =
+            DATE_TRUNC(
                 'month',
                 CURRENT_DATE - INTERVAL '1 month'
             )
@@ -386,20 +414,14 @@ def home():
         ORDER BY date DESC
     """
 
-    cursor.execute(
-        query,
-        parameters
-    )
+    cursor.execute(query, parameters)
 
     expenses = cursor.fetchall()
 
-    # ------------------------------------------------
     # TOTAL
-    # ------------------------------------------------
-
     cursor.execute(
         """
-        SELECT SUM(amount) AS total
+        SELECT COALESCE(SUM(amount), 0) AS total
         FROM expenses
         WHERE user_id = %s
         """,
@@ -408,54 +430,40 @@ def home():
 
     total = cursor.fetchone()["total"]
 
-    # ------------------------------------------------
     # THIS MONTH
-    # ------------------------------------------------
-
     cursor.execute(
         """
-        SELECT SUM(amount) AS total
+        SELECT COALESCE(SUM(amount), 0) AS total
         FROM expenses
         WHERE user_id = %s
-        AND DATE_TRUNC(
-            'month',
-            date
-        ) = DATE_TRUNC(
-            'month',
-            CURRENT_DATE
-        )
+        AND DATE_TRUNC('month', date)
+            =
+            DATE_TRUNC('month', CURRENT_DATE)
         """,
         (user_id,)
     )
 
     monthly_total = cursor.fetchone()["total"]
 
-    # ------------------------------------------------
     # PREVIOUS MONTH
-    # ------------------------------------------------
-
     cursor.execute(
         """
-        SELECT SUM(amount) AS total
+        SELECT COALESCE(SUM(amount), 0) AS total
         FROM expenses
         WHERE user_id = %s
-        AND DATE_TRUNC(
-            'month',
-            date
-        ) = DATE_TRUNC(
-            'month',
-            CURRENT_DATE - INTERVAL '1 month'
-        )
+        AND DATE_TRUNC('month', date)
+            =
+            DATE_TRUNC(
+                'month',
+                CURRENT_DATE - INTERVAL '1 month'
+            )
         """,
         (user_id,)
     )
 
     previous_month_total = cursor.fetchone()["total"]
 
-    # ------------------------------------------------
     # CATEGORY TOTALS
-    # ------------------------------------------------
-
     cursor.execute(
         """
         SELECT
@@ -471,10 +479,7 @@ def home():
 
     category_totals = cursor.fetchall()
 
-    # ------------------------------------------------
     # BUDGET
-    # ------------------------------------------------
-
     cursor.execute(
         """
         SELECT amount
@@ -489,29 +494,16 @@ def home():
     cursor.close()
     connection.close()
 
-    # ------------------------------------------------
-    # DEFAULT VALUES
-    # ------------------------------------------------
-
-    if total is None:
-        total = 0
-
-    if monthly_total is None:
-        monthly_total = 0
-
-    if previous_month_total is None:
-        previous_month_total = 0
-
-    # ------------------------------------------------
-    # PERCENTAGE CHANGE
-    # ------------------------------------------------
+    total = total or 0
+    monthly_total = monthly_total or 0
+    previous_month_total = previous_month_total or 0
 
     if previous_month_total > 0:
 
         percentage_change = (
             (
-                monthly_total
-                - previous_month_total
+                monthly_total -
+                previous_month_total
             )
             / previous_month_total
         ) * 100
@@ -520,35 +512,23 @@ def home():
 
         percentage_change = 0
 
-    # ------------------------------------------------
-    # BUDGET
-    # ------------------------------------------------
-
-    if budget is None:
-
-        budget_amount = 0
-
-    else:
+    if budget:
 
         budget_amount = budget["amount"]
 
-    # ------------------------------------------------
-    # CHART DATA
-    # ------------------------------------------------
+    else:
+
+        budget_amount = 0
 
     category_labels = [
-        category["category"]
-        for category in category_totals
+        row["category"]
+        for row in category_totals
     ]
 
     category_values = [
-        float(category["total"])
-        for category in category_totals
+        float(row["total"])
+        for row in category_totals
     ]
-
-    # ------------------------------------------------
-    # SMART INSIGHTS
-    # ------------------------------------------------
 
     insights = []
 
@@ -568,8 +548,8 @@ def home():
     if budget_amount > 0:
 
         percentage = (
-            monthly_total
-            / budget_amount
+            monthly_total /
+            budget_amount
         ) * 100
 
         if percentage >= 100:
@@ -581,16 +561,14 @@ def home():
         elif percentage >= 80:
 
             insights.append(
-                f"⚠️ You have used "
-                f"{percentage:.1f}% "
+                f"⚠️ You have used {percentage:.1f}% "
                 "of your monthly budget."
             )
 
         elif percentage >= 50:
 
             insights.append(
-                f"🟡 You have used "
-                f"{percentage:.1f}% "
+                f"🟡 You have used {percentage:.1f}% "
                 "of your monthly budget."
             )
 
@@ -641,9 +619,471 @@ def home():
     )
 
 
-# ==================================================
-# AI CATEGORY SUGGESTION
-# ==================================================
+# ============================================================
+# EXPENSES PAGE
+# ============================================================
+
+@app.route("/expenses")
+@login_required
+def expenses_page():
+
+    return redirect("/")
+
+
+# ============================================================
+# BUDGET
+# ============================================================
+
+@app.route("/budget")
+@login_required
+def budget_page():
+
+    user_id = session["user_id"]
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT amount
+        FROM budget
+        WHERE id = %s
+        """,
+        (user_id,)
+    )
+
+    budget = cursor.fetchone()
+
+    cursor.execute(
+        """
+        SELECT COALESCE(SUM(amount), 0) AS total
+        FROM expenses
+        WHERE user_id = %s
+        AND DATE_TRUNC('month', date)
+            =
+            DATE_TRUNC('month', CURRENT_DATE)
+        """,
+        (user_id,)
+    )
+
+    monthly_total = cursor.fetchone()["total"]
+
+    cursor.execute(
+        """
+        SELECT COALESCE(SUM(amount), 0) AS total
+        FROM expenses
+        WHERE user_id = %s
+        """,
+        (user_id,)
+    )
+
+    total = cursor.fetchone()["total"]
+
+    cursor.execute(
+        """
+        SELECT COALESCE(SUM(amount), 0) AS total
+        FROM expenses
+        WHERE user_id = %s
+        AND DATE_TRUNC('month', date)
+            =
+            DATE_TRUNC(
+                'month',
+                CURRENT_DATE - INTERVAL '1 month'
+            )
+        """,
+        (user_id,)
+    )
+
+    previous_month_total = cursor.fetchone()["total"]
+
+    cursor.close()
+    connection.close()
+
+    budget_amount = budget["amount"] if budget else 0
+
+    if budget_amount > 0:
+
+        percentage = (
+            monthly_total /
+            budget_amount
+        ) * 100
+
+    else:
+
+        percentage = 0
+
+    remaining = budget_amount - monthly_total
+
+    return render_template(
+        "budget.html",
+
+        budget_amount=budget_amount,
+
+        monthly_total=monthly_total,
+
+        previous_month_total=previous_month_total,
+
+        total=total,
+
+        percentage=percentage,
+
+        remaining=remaining,
+
+        username=session.get("username")
+    )
+
+
+# ============================================================
+# ANALYTICS
+# ============================================================
+
+@app.route("/analytics")
+@login_required
+def analytics():
+
+    user_id = session["user_id"]
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT COALESCE(SUM(amount), 0) AS total
+        FROM expenses
+        WHERE user_id = %s
+        """,
+        (user_id,)
+    )
+
+    total = cursor.fetchone()["total"]
+
+    cursor.execute(
+        """
+        SELECT COALESCE(SUM(amount), 0) AS total
+        FROM expenses
+        WHERE user_id = %s
+        AND DATE_TRUNC('month', date)
+            =
+            DATE_TRUNC('month', CURRENT_DATE)
+        """,
+        (user_id,)
+    )
+
+    monthly_total = cursor.fetchone()["total"]
+
+    cursor.execute(
+        """
+        SELECT COALESCE(SUM(amount), 0) AS total
+        FROM expenses
+        WHERE user_id = %s
+        AND DATE_TRUNC('month', date)
+            =
+            DATE_TRUNC(
+                'month',
+                CURRENT_DATE - INTERVAL '1 month'
+            )
+        """,
+        (user_id,)
+    )
+
+    previous_month_total = cursor.fetchone()["total"]
+
+    cursor.execute(
+        """
+        SELECT
+            category,
+            SUM(amount) AS total
+        FROM expenses
+        WHERE user_id = %s
+        GROUP BY category
+        ORDER BY total DESC
+        """,
+        (user_id,)
+    )
+
+    category_totals = cursor.fetchall()
+
+    cursor.execute(
+        """
+        SELECT
+            TO_CHAR(date, 'YYYY-MM') AS month,
+            SUM(amount) AS total
+        FROM expenses
+        WHERE user_id = %s
+        GROUP BY TO_CHAR(date, 'YYYY-MM')
+        ORDER BY month
+        """,
+        (user_id,)
+    )
+
+    monthly_totals = cursor.fetchall()
+
+    cursor.execute(
+        """
+        SELECT amount
+        FROM budget
+        WHERE id = %s
+        """,
+        (user_id,)
+    )
+
+    budget = cursor.fetchone()
+
+    cursor.close()
+    connection.close()
+
+    total = total or 0
+    monthly_total = monthly_total or 0
+    previous_month_total = previous_month_total or 0
+
+    budget_amount = budget["amount"] if budget else 0
+
+    if previous_month_total > 0:
+
+        percentage_change = (
+            (
+                monthly_total -
+                previous_month_total
+            )
+            / previous_month_total
+        ) * 100
+
+    else:
+
+        percentage_change = 0
+
+    if budget_amount > 0:
+
+        budget_percentage = (
+            monthly_total /
+            budget_amount
+        ) * 100
+
+    else:
+
+        budget_percentage = 0
+
+    remaining_budget = (
+        budget_amount -
+        monthly_total
+    )
+
+    category_labels = [
+        row["category"]
+        for row in category_totals
+    ]
+
+    category_values = [
+        float(row["total"])
+        for row in category_totals
+    ]
+
+    monthly_labels = [
+        row["month"]
+        for row in monthly_totals
+    ]
+
+    monthly_values = [
+        float(row["total"])
+        for row in monthly_totals
+    ]
+
+    if category_totals:
+
+        highest_category = category_totals[0]["category"]
+
+        highest_category_amount = (
+            category_totals[0]["total"]
+        )
+
+    else:
+
+        highest_category = "None"
+
+        highest_category_amount = 0
+
+    return render_template(
+        "analytics.html",
+
+        username=session.get("username"),
+
+        total=total,
+
+        monthly_total=monthly_total,
+
+        previous_month_total=previous_month_total,
+
+        percentage_change=percentage_change,
+
+        budget_amount=budget_amount,
+
+        budget_percentage=budget_percentage,
+
+        remaining_budget=remaining_budget,
+
+        category_totals=category_totals,
+
+        category_labels=category_labels,
+
+        category_values=category_values,
+
+        monthly_totals=monthly_totals,
+
+        monthly_labels=monthly_labels,
+
+        monthly_values=monthly_values,
+
+        highest_category=highest_category,
+
+        highest_category_amount=highest_category_amount
+    )
+
+# ============================================================
+# SETTINGS
+# ============================================================
+
+@app.route("/settings", methods=["GET", "POST"])
+@login_required
+def settings():
+
+    user_id = session["user_id"]
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    try:
+
+        # ------------------------------------------------
+        # SAVE SETTINGS
+        # ------------------------------------------------
+
+        if request.method == "POST":
+
+            currency = request.form.get("currency", "INR")
+            theme = request.form.get("theme", "system")
+
+            ai_enabled = request.form.get("ai_enabled") == "on"
+            ai_categorization = request.form.get("ai_categorization") == "on"
+            ai_analysis = request.form.get("ai_analysis") == "on"
+            ai_chatbot = request.form.get("ai_chatbot") == "on"
+
+            budget_alerts = request.form.get("budget_alerts") == "on"
+            weekly_summary = request.form.get("weekly_summary") == "on"
+            monthly_report = request.form.get("monthly_report") == "on"
+
+            ai_history_enabled = (
+                request.form.get("ai_history_enabled") == "on"
+            )
+
+            cursor.execute(
+                """
+                INSERT INTO user_settings (
+                    user_id,
+                    currency,
+                    theme,
+                    ai_enabled,
+                    ai_categorization,
+                    ai_analysis,
+                    ai_chatbot,
+                    budget_alerts,
+                    weekly_summary,
+                    monthly_report,
+                    ai_history_enabled,
+                    updated_at
+                )
+                VALUES (
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s,
+                    %s, NOW()
+                )
+                ON CONFLICT (user_id)
+                DO UPDATE SET
+                    currency = EXCLUDED.currency,
+                    theme = EXCLUDED.theme,
+                    ai_enabled = EXCLUDED.ai_enabled,
+                    ai_categorization = EXCLUDED.ai_categorization,
+                    ai_analysis = EXCLUDED.ai_analysis,
+                    ai_chatbot = EXCLUDED.ai_chatbot,
+                    budget_alerts = EXCLUDED.budget_alerts,
+                    weekly_summary = EXCLUDED.weekly_summary,
+                    monthly_report = EXCLUDED.monthly_report,
+                    ai_history_enabled = EXCLUDED.ai_history_enabled,
+                    updated_at = NOW()
+                """,
+                (
+                    user_id,
+                    currency,
+                    theme,
+                    ai_enabled,
+                    ai_categorization,
+                    ai_analysis,
+                    ai_chatbot,
+                    budget_alerts,
+                    weekly_summary,
+                    monthly_report,
+                    ai_history_enabled
+                )
+            )
+
+            connection.commit()
+
+            return redirect("/settings")
+
+        # ------------------------------------------------
+        # GET SETTINGS
+        # ------------------------------------------------
+
+        cursor.execute(
+            """
+            SELECT *
+            FROM user_settings
+            WHERE user_id = %s
+            """,
+            (user_id,)
+        )
+
+        user_settings = cursor.fetchone()
+
+        # ------------------------------------------------
+        # CREATE DEFAULT SETTINGS IF MISSING
+        # ------------------------------------------------
+
+        if user_settings is None:
+
+            cursor.execute(
+                """
+                INSERT INTO user_settings (user_id)
+                VALUES (%s)
+                RETURNING *
+                """,
+                (user_id,)
+            )
+
+            user_settings = cursor.fetchone()
+
+            connection.commit()
+
+        return render_template(
+            "settings.html",
+            settings=user_settings,
+            username=session.get("username")
+        )
+
+    except Exception as error:
+
+        connection.rollback()
+
+        print("SETTINGS ERROR:", error)
+
+        return "Settings error. Check terminal.", 500
+
+    finally:
+
+        cursor.close()
+        connection.close()
+# ============================================================
+# AI CATEGORY
+# ============================================================
 
 @app.route(
     "/suggest-category",
@@ -651,6 +1091,26 @@ def home():
 )
 @login_required
 def suggest_expense_category():
+
+    user_settings = get_user_settings(
+        session["user_id"]
+    )
+
+    if user_settings:
+
+        if not user_settings["ai_enabled"]:
+
+            return jsonify({
+                "error":
+                    "AI features are disabled in Settings."
+            }), 403
+
+        if not user_settings["ai_categorization"]:
+
+            return jsonify({
+                "error":
+                    "AI categorization is disabled in Settings."
+            }), 403
 
     description = request.form.get(
         "description",
@@ -667,9 +1127,13 @@ def suggest_expense_category():
             category,
             amount
         FROM expenses
+
         WHERE user_id = %s
+
         AND description IS NOT NULL
+
         ORDER BY id DESC
+
         LIMIT 20
         """,
         (session["user_id"],)
@@ -683,9 +1147,14 @@ def suggest_expense_category():
     expense_history = [
 
         {
-            "description": expense["description"],
-            "category": expense["category"],
-            "amount": expense["amount"]
+            "description":
+                expense["description"],
+
+            "category":
+                expense["category"],
+
+            "amount":
+                expense["amount"]
         }
 
         for expense in previous_expenses
@@ -709,23 +1178,42 @@ def suggest_expense_category():
     })
 
 
-# ==================================================
+# ============================================================
 # AI ANALYSIS
-# ==================================================
+# ============================================================
 
 @app.route("/ai-analysis")
 @login_required
 def ai_analysis():
+
+    user_settings = get_user_settings(
+        session["user_id"]
+    )
+
+    if user_settings:
+
+        if not user_settings["ai_enabled"]:
+
+            return (
+                "AI features are disabled in Settings.",
+                403
+            )
+
+        if not user_settings["ai_analysis"]:
+
+            return (
+                "AI spending analysis is disabled in Settings.",
+                403
+            )
 
     user_id = session["user_id"]
 
     connection = get_db_connection()
     cursor = connection.cursor()
 
-    # TOTAL
     cursor.execute(
         """
-        SELECT SUM(amount) AS total
+        SELECT COALESCE(SUM(amount), 0) AS total
         FROM expenses
         WHERE user_id = %s
         """,
@@ -734,45 +1222,37 @@ def ai_analysis():
 
     total = cursor.fetchone()["total"]
 
-    # THIS MONTH
     cursor.execute(
         """
-        SELECT SUM(amount) AS total
+        SELECT COALESCE(SUM(amount), 0) AS total
         FROM expenses
         WHERE user_id = %s
-        AND DATE_TRUNC(
-            'month',
-            date
-        ) = DATE_TRUNC(
-            'month',
-            CURRENT_DATE
-        )
+        AND DATE_TRUNC('month', date)
+            =
+            DATE_TRUNC('month', CURRENT_DATE)
         """,
         (user_id,)
     )
 
     monthly_total = cursor.fetchone()["total"]
 
-    # PREVIOUS MONTH
     cursor.execute(
         """
-        SELECT SUM(amount) AS total
+        SELECT COALESCE(SUM(amount), 0) AS total
         FROM expenses
         WHERE user_id = %s
-        AND DATE_TRUNC(
-            'month',
-            date
-        ) = DATE_TRUNC(
-            'month',
-            CURRENT_DATE - INTERVAL '1 month'
-        )
+        AND DATE_TRUNC('month', date)
+            =
+            DATE_TRUNC(
+                'month',
+                CURRENT_DATE - INTERVAL '1 month'
+            )
         """,
         (user_id,)
     )
 
     previous_month_total = cursor.fetchone()["total"]
 
-    # CATEGORY TOTALS
     cursor.execute(
         """
         SELECT
@@ -787,7 +1267,6 @@ def ai_analysis():
 
     category_totals = cursor.fetchall()
 
-    # BUDGET
     cursor.execute(
         """
         SELECT amount
@@ -802,17 +1281,11 @@ def ai_analysis():
     cursor.close()
     connection.close()
 
-    total = total or 0
-    monthly_total = monthly_total or 0
-    previous_month_total = previous_month_total or 0
-
-    if budget:
-
-        budget_amount = budget["amount"]
-
-    else:
-
-        budget_amount = 0
+    budget_amount = (
+        budget["amount"]
+        if budget
+        else 0
+    )
 
     analysis = analyze_spending(
         total,
@@ -828,9 +1301,9 @@ def ai_analysis():
     )
 
 
-# ==================================================
+# ============================================================
 # AI CHATBOT
-# ==================================================
+# ============================================================
 
 @app.route(
     "/chat",
@@ -838,6 +1311,26 @@ def ai_analysis():
 )
 @login_required
 def chat():
+
+    user_settings = get_user_settings(
+        session["user_id"]
+    )
+
+    if user_settings:
+
+        if not user_settings["ai_enabled"]:
+
+            return jsonify({
+                "error":
+                    "AI features are disabled in Settings."
+            }), 403
+
+        if not user_settings["ai_chatbot"]:
+
+            return jsonify({
+                "error":
+                    "AI chatbot is disabled in Settings."
+            }), 403
 
     question = request.form.get(
         "question",
@@ -848,7 +1341,7 @@ def chat():
 
         return jsonify({
             "answer":
-            "Please enter a question."
+                "Please enter a question."
         })
 
     user_id = session["user_id"]
@@ -856,10 +1349,9 @@ def chat():
     connection = get_db_connection()
     cursor = connection.cursor()
 
-    # TOTAL
     cursor.execute(
         """
-        SELECT SUM(amount) AS total
+        SELECT COALESCE(SUM(amount), 0) AS total
         FROM expenses
         WHERE user_id = %s
         """,
@@ -868,26 +1360,20 @@ def chat():
 
     total = cursor.fetchone()["total"]
 
-    # THIS MONTH
     cursor.execute(
         """
-        SELECT SUM(amount) AS total
+        SELECT COALESCE(SUM(amount), 0) AS total
         FROM expenses
         WHERE user_id = %s
-        AND DATE_TRUNC(
-            'month',
-            date
-        ) = DATE_TRUNC(
-            'month',
-            CURRENT_DATE
-        )
+        AND DATE_TRUNC('month', date)
+            =
+            DATE_TRUNC('month', CURRENT_DATE)
         """,
         (user_id,)
     )
 
     monthly_total = cursor.fetchone()["total"]
 
-    # CATEGORY TOTALS
     cursor.execute(
         """
         SELECT
@@ -902,7 +1388,6 @@ def chat():
 
     category_totals = cursor.fetchall()
 
-    # RECENT EXPENSES
     cursor.execute(
         """
         SELECT
@@ -920,7 +1405,6 @@ def chat():
 
     recent_expenses = cursor.fetchall()
 
-    # BUDGET
     cursor.execute(
         """
         SELECT amount
@@ -935,16 +1419,11 @@ def chat():
     cursor.close()
     connection.close()
 
-    total = total or 0
-    monthly_total = monthly_total or 0
-
-    if budget:
-
-        budget_amount = budget["amount"]
-
-    else:
-
-        budget_amount = 0
+    budget_amount = (
+        budget["amount"]
+        if budget
+        else 0
+    )
 
     financial_data = {
 
@@ -1000,9 +1479,9 @@ def chat():
     })
 
 
-# ==================================================
+# ============================================================
 # ADD EXPENSE
-# ==================================================
+# ============================================================
 
 @app.route(
     "/add",
@@ -1012,11 +1491,8 @@ def chat():
 def add_expense():
 
     amount = request.form["amount"]
-
     category = request.form["category"]
-
     description = request.form["description"]
-
     date = request.form["date"]
 
     connection = get_db_connection()
@@ -1051,9 +1527,9 @@ def add_expense():
     return redirect("/")
 
 
-# ==================================================
+# ============================================================
 # DELETE EXPENSE
-# ==================================================
+# ============================================================
 
 @app.route(
     "/delete/<int:id>"
@@ -1084,9 +1560,9 @@ def delete_expense(id):
     return redirect("/")
 
 
-# ==================================================
+# ============================================================
 # EDIT EXPENSE
-# ==================================================
+# ============================================================
 
 @app.route(
     "/edit/<int:id>",
@@ -1101,11 +1577,8 @@ def edit_expense(id):
     if request.method == "POST":
 
         amount = request.form["amount"]
-
         category = request.form["category"]
-
         description = request.form["description"]
-
         date = request.form["date"]
 
         cursor.execute(
@@ -1119,6 +1592,7 @@ def edit_expense(id):
                 date = %s
 
             WHERE id = %s
+
             AND user_id = %s
             """,
             (
@@ -1166,9 +1640,9 @@ def edit_expense(id):
     )
 
 
-# ==================================================
+# ============================================================
 # SET BUDGET
-# ==================================================
+# ============================================================
 
 @app.route(
     "/set-budget",
@@ -1191,7 +1665,6 @@ def set_budget():
             id,
             amount
         )
-
         VALUES (%s, %s)
 
         ON CONFLICT (id)
@@ -1213,13 +1686,9 @@ def set_budget():
     return redirect("/")
 
 
-# ==================================================
-# REST API
-# ==================================================
-
-# --------------------------------------------------
-# GET ALL EXPENSES
-# --------------------------------------------------
+# ============================================================
+# API - GET ALL EXPENSES
+# ============================================================
 
 @app.route(
     "/api/expenses",
@@ -1274,9 +1743,9 @@ def api_get_expenses():
     ])
 
 
-# --------------------------------------------------
-# GET ONE EXPENSE
-# --------------------------------------------------
+# ============================================================
+# API - GET ONE
+# ============================================================
 
 @app.route(
     "/api/expenses/<int:id>",
@@ -1297,7 +1766,9 @@ def api_get_expense(id):
             description,
             date
         FROM expenses
+
         WHERE id = %s
+
         AND user_id = %s
         """,
         (
@@ -1337,9 +1808,9 @@ def api_get_expense(id):
     })
 
 
-# --------------------------------------------------
-# CREATE EXPENSE
-# --------------------------------------------------
+# ============================================================
+# API - CREATE
+# ============================================================
 
 @app.route(
     "/api/expenses",
@@ -1358,17 +1829,11 @@ def api_create_expense():
         }), 400
 
     amount = data.get("amount")
-
     category = data.get("category")
-
-    description = data.get(
-        "description",
-        ""
-    )
-
+    description = data.get("description", "")
     date = data.get("date")
 
-    if not amount or not category or not date:
+    if amount is None or not category or not date:
 
         return jsonify({
             "error":
@@ -1389,6 +1854,7 @@ def api_create_expense():
             user_id
         )
         VALUES (%s, %s, %s, %s, %s)
+
         RETURNING id
         """,
         (
@@ -1418,14 +1884,16 @@ def api_create_expense():
     }), 201
 
 
-# ==================================================
-# START APPLICATION
-# ==================================================
-
+# ============================================================
+# START APP
+# ============================================================
 if __name__ == "__main__":
-
     init_db()
 
+    import os
+
     app.run(
-        debug=True
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 5000)),
+        debug=False
     )
