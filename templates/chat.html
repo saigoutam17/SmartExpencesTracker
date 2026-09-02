@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}
+AI Assistant
+{% endblock %}
+
+{% block heading %}
+AI Financial Assistant
+{% endblock %}
+
+{% block content %}
+
+<div class="chat-card">
+
+    <h2>🤖 Ask your Expense Assistant</h2>
+
+    <p>
+        Ask questions about your spending.
+    </p>
+
+
+    <div id="chat-messages"
+         class="chat-messages">
+
+        <div class="bot-message">
+
+            🤖 Hi! Ask me anything about
+            your expenses.
+
+        </div>
+
+    </div>
+
+
+    <div class="chat-input">
+
+        <input
+            type="text"
+            id="question"
+            placeholder="Ask something..."
+        >
+
+        <button
+            type="button"
+            onclick="askQuestion()"
+        >
+            Send
+        </button>
+
+    </div>
+
+</div>
+
+
+<script>
+
+async function askQuestion() {
+
+    const input =
+        document.getElementById("question");
+
+    const messages =
+        document.getElementById("chat-messages");
+
+
+    const question =
+        input.value.trim();
+
+
+    if (!question) {
+
+        return;
+
+    }
+
+
+    messages.innerHTML +=
+        `<div class="user-message">
+            👤 ${question}
+        </div>`;
+
+
+    input.value = "";
+
+
+    messages.innerHTML +=
+        `<div class="bot-message"
+              id="thinking">
+            🤖 Thinking...
+        </div>`;
+
+
+    const formData =
+        new FormData();
+
+    formData.append(
+        "question",
+        question
+    );
+
+
+    try {
+
+        const response =
+            await fetch(
+                "/chat",
+                {
+                    method: "POST",
+                    body: formData
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        document.getElementById(
+            "thinking"
+        ).remove();
+
+
+        messages.innerHTML +=
+            `<div class="bot-message">
+                🤖 ${data.answer}
+            </div>`;
+
+
+    } catch (error) {
+
+        console.error(error);
+
+        document.getElementById(
+            "thinking"
+        ).innerText =
+            "❌ Unable to connect to AI.";
+
+    }
+
+}
+
+</script>
+
+{% endblock %}

@@ -1,0 +1,1431 @@
+from flask import (
+    Flask,
+    render_template,
+    request,
+    redirect,
+    jsonify,
+    session
+)
+
+from functools import wraps
+
+from werkzeug.security import (
+    generate_password_hash,
+    check_password_hash
+)
+
+import os
+
+from dotenv import load_dotenv
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
+from ai.categorizer import suggest_category
+from ai.analyst import analyze_spending
+from ai.chatbot import ask_financial_ai
+
+
+# ==================================================
+# APP CONFIG
+# ==================================================
+
+load_dotenv()
+
+app = Flask(__name__)
+
+app.secret_key = os.getenv(
+    "FLASK_SECRET_KEY",
+    "SmartExpenseTracker@2026"
+)
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+
+# ==================================================
+# DATABASE CONNECTION
+# ==================================================
+
+def get_db_connection():
+
+    connection = psycopg2.connect(
+        DATABASE_URL,
+        cursor_factory=RealDictCursor
+    )
+
+    return connection
+
+
+# ==================================================
+# LOGIN REQUIRED
+# ==================================================
+
+def login_required(view):
+
+    @wraps(view)
+    def wrapped_view(*args, **kwargs):
+
+        if "user_id" not in session:
+            return redirect("/login")
+
+        return view(*args, **kwargs)
+
+    return wrapped_view
+
+
+# ==================================================
+# REGISTER
+# ==================================================
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+
+    if request.method == "GET":
+        return render_template("register.html")
+
+    username = request.form.get(
+        "username",
+        ""
+    ).strip()
+
+    email = request.form.get(
+        "email",
+        ""
+    ).strip().lower()
+
+    password = request.form.get(
+        "password",
+        ""
+    )
+
+    if not username or not email or not password:
+
+        return "All fields are required", 400
+
+    if len(password) < 6:
+
+        return "Password must contain at least 6 characters", 400
+
+    password_hash = generate_password_hash(password)
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    try:
+
+        cursor.execute(
+            """
+            INSERT INTO users
+            (
+                username,
+                email,
+                password_hash
+            )
+            VALUES (%s, %s, %s)
+            RETURNING id
+            """,
+            (
+                username,
+                email,
+                password_hash
+            )
+        )
+
+        user = cursor.fetchone()
+
+        # Assign old migrated expenses
+        # to the first registered user
+        cursor.execute(
+            """
+            UPDATE expenses
+            SET user_id = %s
+            WHERE user_id IS NULL
+            """,
+            (user["id"],)
+        )
+
+        connection.commit()
+
+    except Exception as error:
+
+        connection.rollback()
+
+        print("REGISTER ERROR:", error)
+
+        cursor.close()
+        connection.close()
+
+        return "Username or email may already exist", 400
+
+    cursor.close()
+    connection.close()
+
+    session["user_id"] = user["id"]
+    session["username"] = username
+
+    return redirect("/")
+
+
+# ==================================================
+# LOGIN
+# ==================================================
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+
+    if request.method == "GET":
+
+        return render_template("login.html")
+
+    email = request.form.get(
+        "email",
+        ""
+    ).strip().lower()
+
+    password = request.form.get(
+        "password",
+        ""
+    )
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT
+            id,
+            username,
+            password_hash
+        FROM users
+        WHERE email = %s
+        """,
+        (email,)
+    )
+
+    user = cursor.fetchone()
+
+    cursor.close()
+    connection.close()
+
+    if user is None or not check_password_hash(
+        user["password_hash"],
+        password
+    ):
+
+        return "Invalid email or password", 401
+
+    session["user_id"] = user["id"]
+    session["username"] = user["username"]
+
+    return redirect("/")
+
+
+# ==================================================
+# LOGOUT
+# ==================================================
+
+@app.route("/logout")
+def logout():
+
+    session.clear()
+
+    return redirect("/login")
+
+
+# ==================================================
+# CREATE TABLES
+# ==================================================
+
+def init_db():
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    # USERS
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS users (
+            id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+        """
+    )
+
+    # EXPENSES
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS expenses (
+            id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            amount NUMERIC NOT NULL,
+            category TEXT NOT NULL,
+            description TEXT,
+            date DATE NOT NULL,
+            user_id BIGINT
+        )
+        """
+    )
+
+    # Make sure user_id exists
+    cursor.execute(
+        """
+        ALTER TABLE expenses
+        ADD COLUMN IF NOT EXISTS user_id BIGINT
+        """
+    )
+
+    # BUDGET
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS budget (
+            id BIGINT PRIMARY KEY,
+            amount NUMERIC NOT NULL
+        )
+        """
+    )
+
+    connection.commit()
+
+    cursor.close()
+    connection.close()
+
+
+# ==================================================
+# HOME PAGE
+# ==================================================
+
+@app.route("/")
+@login_required
+def home():
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    user_id = session["user_id"]
+
+    # ------------------------------------------------
+    # SEARCH / FILTER
+    # ------------------------------------------------
+
+    search = request.args.get(
+        "search",
+        ""
+    )
+
+    category_filter = request.args.get(
+        "category",
+        ""
+    )
+
+    date_filter = request.args.get(
+        "date_filter",
+        ""
+    )
+
+    query = """
+        SELECT *
+        FROM expenses
+        WHERE user_id = %s
+    """
+
+    parameters = [user_id]
+
+    if search:
+
+        query += """
+            AND (
+                description ILIKE %s
+                OR category ILIKE %s
+            )
+        """
+
+        parameters.append(
+            "%" + search + "%"
+        )
+
+        parameters.append(
+            "%" + search + "%"
+        )
+
+    if category_filter:
+
+        query += """
+            AND category = %s
+        """
+
+        parameters.append(
+            category_filter
+        )
+
+    if date_filter == "this_month":
+
+        query += """
+            AND DATE_TRUNC(
+                'month',
+                date
+            ) = DATE_TRUNC(
+                'month',
+                CURRENT_DATE
+            )
+        """
+
+    elif date_filter == "last_month":
+
+        query += """
+            AND DATE_TRUNC(
+                'month',
+                date
+            ) = DATE_TRUNC(
+                'month',
+                CURRENT_DATE - INTERVAL '1 month'
+            )
+        """
+
+    query += """
+        ORDER BY date DESC
+    """
+
+    cursor.execute(
+        query,
+        parameters
+    )
+
+    expenses = cursor.fetchall()
+
+    # ------------------------------------------------
+    # TOTAL
+    # ------------------------------------------------
+
+    cursor.execute(
+        """
+        SELECT SUM(amount) AS total
+        FROM expenses
+        WHERE user_id = %s
+        """,
+        (user_id,)
+    )
+
+    total = cursor.fetchone()["total"]
+
+    # ------------------------------------------------
+    # THIS MONTH
+    # ------------------------------------------------
+
+    cursor.execute(
+        """
+        SELECT SUM(amount) AS total
+        FROM expenses
+        WHERE user_id = %s
+        AND DATE_TRUNC(
+            'month',
+            date
+        ) = DATE_TRUNC(
+            'month',
+            CURRENT_DATE
+        )
+        """,
+        (user_id,)
+    )
+
+    monthly_total = cursor.fetchone()["total"]
+
+    # ------------------------------------------------
+    # PREVIOUS MONTH
+    # ------------------------------------------------
+
+    cursor.execute(
+        """
+        SELECT SUM(amount) AS total
+        FROM expenses
+        WHERE user_id = %s
+        AND DATE_TRUNC(
+            'month',
+            date
+        ) = DATE_TRUNC(
+            'month',
+            CURRENT_DATE - INTERVAL '1 month'
+        )
+        """,
+        (user_id,)
+    )
+
+    previous_month_total = cursor.fetchone()["total"]
+
+    # ------------------------------------------------
+    # CATEGORY TOTALS
+    # ------------------------------------------------
+
+    cursor.execute(
+        """
+        SELECT
+            category,
+            SUM(amount) AS total
+        FROM expenses
+        WHERE user_id = %s
+        GROUP BY category
+        ORDER BY total DESC
+        """,
+        (user_id,)
+    )
+
+    category_totals = cursor.fetchall()
+
+    # ------------------------------------------------
+    # BUDGET
+    # ------------------------------------------------
+
+    cursor.execute(
+        """
+        SELECT amount
+        FROM budget
+        WHERE id = %s
+        """,
+        (user_id,)
+    )
+
+    budget = cursor.fetchone()
+
+    cursor.close()
+    connection.close()
+
+    # ------------------------------------------------
+    # DEFAULT VALUES
+    # ------------------------------------------------
+
+    if total is None:
+        total = 0
+
+    if monthly_total is None:
+        monthly_total = 0
+
+    if previous_month_total is None:
+        previous_month_total = 0
+
+    # ------------------------------------------------
+    # PERCENTAGE CHANGE
+    # ------------------------------------------------
+
+    if previous_month_total > 0:
+
+        percentage_change = (
+            (
+                monthly_total
+                - previous_month_total
+            )
+            / previous_month_total
+        ) * 100
+
+    else:
+
+        percentage_change = 0
+
+    # ------------------------------------------------
+    # BUDGET
+    # ------------------------------------------------
+
+    if budget is None:
+
+        budget_amount = 0
+
+    else:
+
+        budget_amount = budget["amount"]
+
+    # ------------------------------------------------
+    # CHART DATA
+    # ------------------------------------------------
+
+    category_labels = [
+        category["category"]
+        for category in category_totals
+    ]
+
+    category_values = [
+        float(category["total"])
+        for category in category_totals
+    ]
+
+    # ------------------------------------------------
+    # SMART INSIGHTS
+    # ------------------------------------------------
+
+    insights = []
+
+    if category_totals:
+
+        highest_category = max(
+            category_totals,
+            key=lambda x: x["total"]
+        )
+
+        insights.append(
+            f"💡 Your highest spending category is "
+            f"{highest_category['category']} "
+            f"with ₹{highest_category['total']:.2f}."
+        )
+
+    if budget_amount > 0:
+
+        percentage = (
+            monthly_total
+            / budget_amount
+        ) * 100
+
+        if percentage >= 100:
+
+            insights.append(
+                "🔴 You have exceeded your monthly budget!"
+            )
+
+        elif percentage >= 80:
+
+            insights.append(
+                f"⚠️ You have used "
+                f"{percentage:.1f}% "
+                "of your monthly budget."
+            )
+
+        elif percentage >= 50:
+
+            insights.append(
+                f"🟡 You have used "
+                f"{percentage:.1f}% "
+                "of your monthly budget."
+            )
+
+        else:
+
+            insights.append(
+                "🟢 Your spending is currently "
+                "within your budget."
+            )
+
+    else:
+
+        insights.append(
+            "💵 Set a monthly budget to receive "
+            "budget insights."
+        )
+
+    return render_template(
+        "index.html",
+
+        expenses=expenses,
+
+        total=total,
+
+        monthly_total=monthly_total,
+
+        previous_month_total=previous_month_total,
+
+        percentage_change=percentage_change,
+
+        category_totals=category_totals,
+
+        category_labels=category_labels,
+
+        category_values=category_values,
+
+        budget_amount=budget_amount,
+
+        insights=insights,
+
+        search=search,
+
+        category_filter=category_filter,
+
+        date_filter=date_filter,
+
+        username=session.get("username")
+    )
+
+
+# ==================================================
+# AI CATEGORY SUGGESTION
+# ==================================================
+
+@app.route(
+    "/suggest-category",
+    methods=["POST"]
+)
+@login_required
+def suggest_expense_category():
+
+    description = request.form.get(
+        "description",
+        ""
+    )
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT
+            description,
+            category,
+            amount
+        FROM expenses
+        WHERE user_id = %s
+        AND description IS NOT NULL
+        ORDER BY id DESC
+        LIMIT 20
+        """,
+        (session["user_id"],)
+    )
+
+    previous_expenses = cursor.fetchall()
+
+    cursor.close()
+    connection.close()
+
+    expense_history = [
+
+        {
+            "description": expense["description"],
+            "category": expense["category"],
+            "amount": expense["amount"]
+        }
+
+        for expense in previous_expenses
+    ]
+
+    result = suggest_category(
+        description,
+        expense_history
+    )
+
+    return jsonify({
+
+        "category":
+            result["category"],
+
+        "confidence":
+            result["confidence"],
+
+        "reason":
+            result["reason"]
+    })
+
+
+# ==================================================
+# AI ANALYSIS
+# ==================================================
+
+@app.route("/ai-analysis")
+@login_required
+def ai_analysis():
+
+    user_id = session["user_id"]
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    # TOTAL
+    cursor.execute(
+        """
+        SELECT SUM(amount) AS total
+        FROM expenses
+        WHERE user_id = %s
+        """,
+        (user_id,)
+    )
+
+    total = cursor.fetchone()["total"]
+
+    # THIS MONTH
+    cursor.execute(
+        """
+        SELECT SUM(amount) AS total
+        FROM expenses
+        WHERE user_id = %s
+        AND DATE_TRUNC(
+            'month',
+            date
+        ) = DATE_TRUNC(
+            'month',
+            CURRENT_DATE
+        )
+        """,
+        (user_id,)
+    )
+
+    monthly_total = cursor.fetchone()["total"]
+
+    # PREVIOUS MONTH
+    cursor.execute(
+        """
+        SELECT SUM(amount) AS total
+        FROM expenses
+        WHERE user_id = %s
+        AND DATE_TRUNC(
+            'month',
+            date
+        ) = DATE_TRUNC(
+            'month',
+            CURRENT_DATE - INTERVAL '1 month'
+        )
+        """,
+        (user_id,)
+    )
+
+    previous_month_total = cursor.fetchone()["total"]
+
+    # CATEGORY TOTALS
+    cursor.execute(
+        """
+        SELECT
+            category,
+            SUM(amount) AS total
+        FROM expenses
+        WHERE user_id = %s
+        GROUP BY category
+        """,
+        (user_id,)
+    )
+
+    category_totals = cursor.fetchall()
+
+    # BUDGET
+    cursor.execute(
+        """
+        SELECT amount
+        FROM budget
+        WHERE id = %s
+        """,
+        (user_id,)
+    )
+
+    budget = cursor.fetchone()
+
+    cursor.close()
+    connection.close()
+
+    total = total or 0
+    monthly_total = monthly_total or 0
+    previous_month_total = previous_month_total or 0
+
+    if budget:
+
+        budget_amount = budget["amount"]
+
+    else:
+
+        budget_amount = 0
+
+    analysis = analyze_spending(
+        total,
+        monthly_total,
+        previous_month_total,
+        category_totals,
+        budget_amount
+    )
+
+    return render_template(
+        "ai_analysis.html",
+        analysis=analysis
+    )
+
+
+# ==================================================
+# AI CHATBOT
+# ==================================================
+
+@app.route(
+    "/chat",
+    methods=["POST"]
+)
+@login_required
+def chat():
+
+    question = request.form.get(
+        "question",
+        ""
+    ).strip()
+
+    if not question:
+
+        return jsonify({
+            "answer":
+            "Please enter a question."
+        })
+
+    user_id = session["user_id"]
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    # TOTAL
+    cursor.execute(
+        """
+        SELECT SUM(amount) AS total
+        FROM expenses
+        WHERE user_id = %s
+        """,
+        (user_id,)
+    )
+
+    total = cursor.fetchone()["total"]
+
+    # THIS MONTH
+    cursor.execute(
+        """
+        SELECT SUM(amount) AS total
+        FROM expenses
+        WHERE user_id = %s
+        AND DATE_TRUNC(
+            'month',
+            date
+        ) = DATE_TRUNC(
+            'month',
+            CURRENT_DATE
+        )
+        """,
+        (user_id,)
+    )
+
+    monthly_total = cursor.fetchone()["total"]
+
+    # CATEGORY TOTALS
+    cursor.execute(
+        """
+        SELECT
+            category,
+            SUM(amount) AS total
+        FROM expenses
+        WHERE user_id = %s
+        GROUP BY category
+        """,
+        (user_id,)
+    )
+
+    category_totals = cursor.fetchall()
+
+    # RECENT EXPENSES
+    cursor.execute(
+        """
+        SELECT
+            date,
+            category,
+            description,
+            amount
+        FROM expenses
+        WHERE user_id = %s
+        ORDER BY date DESC
+        LIMIT 20
+        """,
+        (user_id,)
+    )
+
+    recent_expenses = cursor.fetchall()
+
+    # BUDGET
+    cursor.execute(
+        """
+        SELECT amount
+        FROM budget
+        WHERE id = %s
+        """,
+        (user_id,)
+    )
+
+    budget = cursor.fetchone()
+
+    cursor.close()
+    connection.close()
+
+    total = total or 0
+    monthly_total = monthly_total or 0
+
+    if budget:
+
+        budget_amount = budget["amount"]
+
+    else:
+
+        budget_amount = 0
+
+    financial_data = {
+
+        "total_spending":
+            float(total),
+
+        "this_month":
+            float(monthly_total),
+
+        "monthly_budget":
+            float(budget_amount),
+
+        "categories": [
+
+            {
+                "category":
+                    row["category"],
+
+                "total":
+                    float(row["total"])
+            }
+
+            for row in category_totals
+        ],
+
+        "recent_expenses": [
+
+            {
+                "date":
+                    str(row["date"]),
+
+                "category":
+                    row["category"],
+
+                "description":
+                    row["description"],
+
+                "amount":
+                    float(row["amount"])
+            }
+
+            for row in recent_expenses
+        ]
+    }
+
+    answer = ask_financial_ai(
+        question,
+        financial_data
+    )
+
+    return jsonify({
+        "answer": answer
+    })
+
+
+# ==================================================
+# ADD EXPENSE
+# ==================================================
+
+@app.route(
+    "/add",
+    methods=["POST"]
+)
+@login_required
+def add_expense():
+
+    amount = request.form["amount"]
+
+    category = request.form["category"]
+
+    description = request.form["description"]
+
+    date = request.form["date"]
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        INSERT INTO expenses
+        (
+            amount,
+            category,
+            description,
+            date,
+            user_id
+        )
+        VALUES (%s, %s, %s, %s, %s)
+        """,
+        (
+            amount,
+            category,
+            description,
+            date,
+            session["user_id"]
+        )
+    )
+
+    connection.commit()
+
+    cursor.close()
+    connection.close()
+
+    return redirect("/")
+
+
+# ==================================================
+# DELETE EXPENSE
+# ==================================================
+
+@app.route(
+    "/delete/<int:id>"
+)
+@login_required
+def delete_expense(id):
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        DELETE FROM expenses
+        WHERE id = %s
+        AND user_id = %s
+        """,
+        (
+            id,
+            session["user_id"]
+        )
+    )
+
+    connection.commit()
+
+    cursor.close()
+    connection.close()
+
+    return redirect("/")
+
+
+# ==================================================
+# EDIT EXPENSE
+# ==================================================
+
+@app.route(
+    "/edit/<int:id>",
+    methods=["GET", "POST"]
+)
+@login_required
+def edit_expense(id):
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    if request.method == "POST":
+
+        amount = request.form["amount"]
+
+        category = request.form["category"]
+
+        description = request.form["description"]
+
+        date = request.form["date"]
+
+        cursor.execute(
+            """
+            UPDATE expenses
+
+            SET
+                amount = %s,
+                category = %s,
+                description = %s,
+                date = %s
+
+            WHERE id = %s
+            AND user_id = %s
+            """,
+            (
+                amount,
+                category,
+                description,
+                date,
+                id,
+                session["user_id"]
+            )
+        )
+
+        connection.commit()
+
+        cursor.close()
+        connection.close()
+
+        return redirect("/")
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM expenses
+        WHERE id = %s
+        AND user_id = %s
+        """,
+        (
+            id,
+            session["user_id"]
+        )
+    )
+
+    expense = cursor.fetchone()
+
+    cursor.close()
+    connection.close()
+
+    if expense is None:
+
+        return "Expense not found", 404
+
+    return render_template(
+        "edit.html",
+        expense=expense
+    )
+
+
+# ==================================================
+# SET BUDGET
+# ==================================================
+
+@app.route(
+    "/set-budget",
+    methods=["POST"]
+)
+@login_required
+def set_budget():
+
+    budget_amount = request.form["budget"]
+
+    user_id = session["user_id"]
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        INSERT INTO budget
+        (
+            id,
+            amount
+        )
+
+        VALUES (%s, %s)
+
+        ON CONFLICT (id)
+
+        DO UPDATE SET
+            amount = EXCLUDED.amount
+        """,
+        (
+            user_id,
+            budget_amount
+        )
+    )
+
+    connection.commit()
+
+    cursor.close()
+    connection.close()
+
+    return redirect("/")
+
+
+# ==================================================
+# REST API
+# ==================================================
+
+# --------------------------------------------------
+# GET ALL EXPENSES
+# --------------------------------------------------
+
+@app.route(
+    "/api/expenses",
+    methods=["GET"]
+)
+@login_required
+def api_get_expenses():
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT
+            id,
+            amount,
+            category,
+            description,
+            date
+        FROM expenses
+        WHERE user_id = %s
+        ORDER BY date DESC
+        """,
+        (session["user_id"],)
+    )
+
+    expenses = cursor.fetchall()
+
+    cursor.close()
+    connection.close()
+
+    return jsonify([
+
+        {
+            "id":
+                expense["id"],
+
+            "amount":
+                float(expense["amount"]),
+
+            "category":
+                expense["category"],
+
+            "description":
+                expense["description"],
+
+            "date":
+                str(expense["date"])
+        }
+
+        for expense in expenses
+    ])
+
+
+# --------------------------------------------------
+# GET ONE EXPENSE
+# --------------------------------------------------
+
+@app.route(
+    "/api/expenses/<int:id>",
+    methods=["GET"]
+)
+@login_required
+def api_get_expense(id):
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT
+            id,
+            amount,
+            category,
+            description,
+            date
+        FROM expenses
+        WHERE id = %s
+        AND user_id = %s
+        """,
+        (
+            id,
+            session["user_id"]
+        )
+    )
+
+    expense = cursor.fetchone()
+
+    cursor.close()
+    connection.close()
+
+    if expense is None:
+
+        return jsonify({
+            "error":
+                "Expense not found"
+        }), 404
+
+    return jsonify({
+
+        "id":
+            expense["id"],
+
+        "amount":
+            float(expense["amount"]),
+
+        "category":
+            expense["category"],
+
+        "description":
+            expense["description"],
+
+        "date":
+            str(expense["date"])
+    })
+
+
+# --------------------------------------------------
+# CREATE EXPENSE
+# --------------------------------------------------
+
+@app.route(
+    "/api/expenses",
+    methods=["POST"]
+)
+@login_required
+def api_create_expense():
+
+    data = request.get_json()
+
+    if not data:
+
+        return jsonify({
+            "error":
+                "JSON data required"
+        }), 400
+
+    amount = data.get("amount")
+
+    category = data.get("category")
+
+    description = data.get(
+        "description",
+        ""
+    )
+
+    date = data.get("date")
+
+    if not amount or not category or not date:
+
+        return jsonify({
+            "error":
+                "amount, category and date are required"
+        }), 400
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        INSERT INTO expenses
+        (
+            amount,
+            category,
+            description,
+            date,
+            user_id
+        )
+        VALUES (%s, %s, %s, %s, %s)
+        RETURNING id
+        """,
+        (
+            amount,
+            category,
+            description,
+            date,
+            session["user_id"]
+        )
+    )
+
+    expense_id = cursor.fetchone()["id"]
+
+    connection.commit()
+
+    cursor.close()
+    connection.close()
+
+    return jsonify({
+
+        "message":
+            "Expense created successfully",
+
+        "id":
+            expense_id
+
+    }), 201
+
+
+# ==================================================
+# START APPLICATION
+# ==================================================
+
+if __name__ == "__main__":
+
+    init_db()
+
+    app.run(
+        debug=True
+    )

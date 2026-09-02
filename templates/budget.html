@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}
+Budget - SmartExpenseTracker
+{% endblock %}
+
+{% block heading %}
+Budget
+{% endblock %}
+
+{% block content %}
+
+<div class="budget-card">
+
+    <h2>💵 Monthly Budget</h2>
+
+    <h1>
+        ₹{{ "%.2f"|format(budget_amount) }}
+    </h1>
+
+    <form action="/set-budget" method="POST">
+
+        <label>Set Monthly Budget</label>
+
+        <input
+            type="number"
+            name="budget"
+            placeholder="Enter monthly budget"
+            step="0.01"
+            min="1"
+            required
+        >
+
+        <button type="submit">
+            Set Budget
+        </button>
+
+    </form>
+
+</div>
+
+
+<div class="budget-card">
+
+    <h2>📊 Budget Usage</h2>
+
+    {% if budget_amount > 0 %}
+
+        {% set percentage =
+            (monthly_total / budget_amount * 100)
+        %}
+
+        {% if percentage > 100 %}
+            {% set progress = 100 %}
+        {% else %}
+            {% set progress = percentage %}
+        {% endif %}
+
+        <h1>
+            {{ "%.1f"|format(percentage) }}%
+        </h1>
+
+        <div class="progress-container">
+
+            <div
+                class="progress-bar"
+                data-progress="{{ progress }}">
+            </div>
+
+        </div>
+
+
+        <p>
+            This Month:
+            <strong>
+                ₹{{ "%.2f"|format(monthly_total) }}
+            </strong>
+        </p>
+
+
+        {% if percentage >= 100 %}
+
+            <p>🔴 Budget exceeded!</p>
+
+        {% elif percentage >= 80 %}
+
+            <p>⚠️ You are close to your budget limit.</p>
+
+        {% elif percentage >= 50 %}
+
+            <p>🟡 More than half of your budget is used.</p>
+
+        {% else %}
+
+            <p>🟢 Your spending is under control.</p>
+
+        {% endif %}
+
+    {% else %}
+
+        <p>
+            Set a budget to see your budget usage.
+        </p>
+
+    {% endif %}
+
+</div>
+
+
+<script>
+
+const progressBar =
+    document.querySelector(".progress-bar");
+
+if (progressBar) {
+
+    const progress =
+        progressBar.dataset.progress;
+
+    progressBar.style.width =
+        progress + "%";
+
+}
+
+</script>
+
+{% endblock %}

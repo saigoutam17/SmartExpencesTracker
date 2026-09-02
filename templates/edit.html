@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Edit Expense</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>✏️ Edit Expense</h1>
+
+    <div class="expense-form">
+
+        <h2>Update Expense</h2>
+
+        <form action="/edit/{{ expense['id'] }}" method="POST">
+
+            <label>Amount</label>
+
+            <input
+                type="number"
+                name="amount"
+                value="{{ expense['amount'] }}"
+                step="0.01"
+                required
+            >
+
+
+            <label>Category</label>
+
+            <select name="category" required>
+
+                <option value="Food"
+                {% if expense['category'] == 'Food' %}
+                selected
+                {% endif %}>
+                    Food
+                </option>
+
+                <option value="Travel"
+                {% if expense['category'] == 'Travel' %}
+                selected
+                {% endif %}>
+                    Travel
+                </option>
+
+                <option value="Shopping"
+                {% if expense['category'] == 'Shopping' %}
+                selected
+                {% endif %}>
+                    Shopping
+                </option>
+
+                <option value="Bills"
+                {% if expense['category'] == 'Bills' %}
+                selected
+                {% endif %}>
+                    Bills
+                </option>
+
+                <option value="Education"
+                {% if expense['category'] == 'Education' %}
+                selected
+                {% endif %}>
+                    Education
+                </option>
+
+                <option value="Other"
+                {% if expense['category'] == 'Other' %}
+                selected
+                {% endif %}>
+                    Other
+                </option>
+
+            </select>
+
+
+            <label>Description</label>
+
+            <input
+                type="text"
+                name="description"
+                value="{{ expense['description'] }}"
+            >
+
+
+            <label>Date</label>
+
+            <input
+                type="date"
+                name="date"
+                value="{{ expense['date'] }}"
+                required
+            >
+
+
+            <button type="submit">
+                Update Expense
+            </button>
+
+        </form>
+
+        <br>
+
+        <a href="/">
+            ← Back to Expenses
+        </a>
+
+    </div>
+
+</div>
+
+</body>
+
+</html>

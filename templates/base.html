@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>
+        {% block title %}
+        SmartExpenseTracker
+        {% endblock %}
+    </title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</head>
+
+
+<body>
+
+<div class="app-layout">
+
+
+    <!-- SIDEBAR -->
+
+    <aside class="sidebar">
+
+        <div class="logo">
+
+            💰 SmartExpense
+
+        </div>
+
+
+        <nav class="sidebar-nav">
+
+            <a href="/" class="nav-link">
+
+                🏠
+                <span>Dashboard</span>
+
+            </a>
+
+
+            <a href="/expenses" class="nav-link">
+
+                💳
+                <span>Expenses</span>
+
+            </a>
+
+
+            <a href="/budget" class="nav-link">
+
+                💵
+                <span>Budget</span>
+
+            </a>
+
+
+            <a href="/analytics" class="nav-link">
+
+                📊
+                <span>Analytics</span>
+
+            </a>
+
+
+            <a href="/ai-analysis" class="nav-link">
+
+                🤖
+                <span>AI Assistant</span>
+
+            </a>
+
+
+            <a href="/" class="nav-link">
+
+                ⚙️
+                <span>Settings</span>
+
+            </a>
+
+        </nav>
+
+
+        <div class="sidebar-bottom">
+
+            <p>
+                SmartExpenseTracker
+            </p>
+
+            <small>
+                AI + Cloud Finance Platform
+            </small>
+
+        </div>
+
+    </aside>
+
+
+
+    <!-- MAIN AREA -->
+
+    <main class="main-area">
+
+
+        <!-- TOP BAR -->
+
+        <header class="topbar">
+
+            <div>
+
+                <h1>
+                    {% block heading %}
+                    Dashboard
+                    {% endblock %}
+                </h1>
+
+                <p>
+                    Manage your finances intelligently.
+                </p>
+
+            </div>
+
+
+            <div class="user-area">
+
+                👤
+
+            </div>
+
+        </header>
+
+
+
+        <!-- PAGE CONTENT -->
+
+        <section class="page-content">
+
+            {% block content %}
+
+            {% endblock %}
+
+        </section>
+
+
+    </main>
+
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}
+AI Spending Analysis
+{% endblock %}
+
+{% block heading %}
+AI Spending Analysis
+{% endblock %}
+
+{% block content %}
+
+<div class="insights-card">
+
+    <h2>🤖 AI Spending Analyst</h2>
+
+    <div class="insight-row">
+
+        <strong>
+            📊 Highest Spending Category
+        </strong>
+
+        <p>
+            {{ analysis["category"] }}
+        </p>
+
+    </div>
+
+
+    <div class="insight-row">
+
+        <strong>
+            📈 Spending Trend
+        </strong>
+
+        <p>
+            {{ analysis["trend"] }}
+        </p>
+
+    </div>
+
+
+    <div class="insight-row">
+
+        <strong>
+            💵 Budget Status
+        </strong>
+
+        <p>
+            {{ analysis["budget_status"] }}
+        </p>
+
+    </div>
+
+
+    <div class="insight-row">
+
+        <strong>
+            💡 Recommendation
+        </strong>
+
+        <p>
+            {{ analysis["recommendation"] }}
+        </p>
+
+    </div>
+
+
+    <div class="insight-row">
+
+        <strong>
+            🧠 AI Summary
+        </strong>
+
+        <p>
+            {{ analysis["summary"] }}
+        </p>
+
+    </div>
+
+</div>
+
+{% endblock %}
