@@ -24,7 +24,7 @@ p {
 /* TOTAL CARD */
 
 .total-card {
-    background-color: rgb(10, 107, 176);
+    background-color: rgb(14, 21, 26);
     margin-top: 25px;
     padding: 20px;
     border-radius: 10px;
@@ -103,7 +103,7 @@ button {
 }
 
 button:hover {
-    background-color: #1d4ed8;
+    background-color: #262729;
 }
 
 

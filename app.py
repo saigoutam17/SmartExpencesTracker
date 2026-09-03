@@ -1276,10 +1276,9 @@ def suggest_expense_category():
 # ============================================================
 # AI ANALYSIS
 # ============================================================
-
-@app.route("/assistant")
+@app.route("/ai-analysis")
 @login_required
-def assistant():
+def ai_analysis():
 
     user_settings = get_user_settings(
         session["user_id"]
@@ -1288,14 +1287,12 @@ def assistant():
     if user_settings:
 
         if not user_settings["ai_enabled"]:
-
             return (
                 "AI features are disabled in Settings.",
                 403
             )
 
         if not user_settings["ai_analysis"]:
-
             return (
                 "AI spending analysis is disabled in Settings.",
                 403
@@ -1306,33 +1303,26 @@ def assistant():
     connection = get_db_connection()
     cursor = connection.cursor()
 
-    cursor.execute(
-        """
+    cursor.execute("""
         SELECT COALESCE(SUM(amount), 0) AS total
         FROM expenses
         WHERE user_id = %s
-        """,
-        (user_id,)
-    )
+    """, (user_id,))
 
     total = cursor.fetchone()["total"]
 
-    cursor.execute(
-        """
+    cursor.execute("""
         SELECT COALESCE(SUM(amount), 0) AS total
         FROM expenses
         WHERE user_id = %s
         AND DATE_TRUNC('month', date)
             =
             DATE_TRUNC('month', CURRENT_DATE)
-        """,
-        (user_id,)
-    )
+    """, (user_id,))
 
     monthly_total = cursor.fetchone()["total"]
 
-    cursor.execute(
-        """
+    cursor.execute("""
         SELECT COALESCE(SUM(amount), 0) AS total
         FROM expenses
         WHERE user_id = %s
@@ -1342,34 +1332,27 @@ def assistant():
                 'month',
                 CURRENT_DATE - INTERVAL '1 month'
             )
-        """,
-        (user_id,)
-    )
+    """, (user_id,))
 
     previous_month_total = cursor.fetchone()["total"]
 
-    cursor.execute(
-        """
+    cursor.execute("""
         SELECT
             category,
             SUM(amount) AS total
         FROM expenses
         WHERE user_id = %s
         GROUP BY category
-        """,
-        (user_id,)
-    )
+        ORDER BY total DESC
+    """, (user_id,))
 
     category_totals = cursor.fetchall()
 
-    cursor.execute(
-        """
+    cursor.execute("""
         SELECT amount
         FROM budget
         WHERE id = %s
-        """,
-        (user_id,)
-    )
+    """, (user_id,))
 
     budget = cursor.fetchone()
 
@@ -1391,20 +1374,15 @@ def assistant():
     )
 
     return render_template(
-        "assistant.html",
+        "ai-analysis.html",
         analysis=analysis
     )
-
-# ============================================================
-# AI CHATBOT
-# ============================================================
-
 @app.route(
     "/chat",
     methods=["GET", "POST"]
 )
 @login_required
-def chat():
+def assistant():
 
     if request.method == "GET":
         return render_template("chat.html")
@@ -1413,22 +1391,18 @@ def chat():
         session["user_id"]
     )
 
-    # DON'T DELETE THE REST OF YOUR EXISTING CHAT CODE
-
     if user_settings:
 
         if not user_settings["ai_enabled"]:
-
             return jsonify({
                 "error":
-                    "AI features are disabled in Settings."
+                "AI features are disabled in Settings."
             }), 403
 
         if not user_settings["ai_chatbot"]:
-
             return jsonify({
                 "error":
-                    "AI chatbot is disabled in Settings."
+                "AI chatbot is disabled in Settings."
             }), 403
 
     question = request.form.get(
@@ -1437,10 +1411,9 @@ def chat():
     ).strip()
 
     if not question:
-
         return jsonify({
             "answer":
-                "Please enter a question."
+            "Please enter a question."
         })
 
     user_id = session["user_id"]
@@ -1448,47 +1421,42 @@ def chat():
     connection = get_db_connection()
     cursor = connection.cursor()
 
-    cursor.execute(
-        """
+    # TOTAL SPENDING
+    cursor.execute("""
         SELECT COALESCE(SUM(amount), 0) AS total
         FROM expenses
         WHERE user_id = %s
-        """,
-        (user_id,)
-    )
+    """, (user_id,))
 
     total = cursor.fetchone()["total"]
 
-    cursor.execute(
-        """
+    # THIS MONTH
+    cursor.execute("""
         SELECT COALESCE(SUM(amount), 0) AS total
         FROM expenses
         WHERE user_id = %s
         AND DATE_TRUNC('month', date)
             =
             DATE_TRUNC('month', CURRENT_DATE)
-        """,
-        (user_id,)
-    )
+    """, (user_id,))
 
     monthly_total = cursor.fetchone()["total"]
 
-    cursor.execute(
-        """
+    # CATEGORIES
+    cursor.execute("""
         SELECT
             category,
             SUM(amount) AS total
         FROM expenses
         WHERE user_id = %s
         GROUP BY category
-        """,
-        (user_id,)
-    )
+        ORDER BY total DESC
+    """, (user_id,))
 
     category_totals = cursor.fetchall()
 
-    cursor.execute(
-        """
+    # RECENT EXPENSES
+    cursor.execute("""
         SELECT
             date,
             category,
@@ -1496,22 +1464,18 @@ def chat():
             amount
         FROM expenses
         WHERE user_id = %s
-        ORDER BY date DESC
+        ORDER BY date DESC, id DESC
         LIMIT 20
-        """,
-        (user_id,)
-    )
+    """, (user_id,))
 
     recent_expenses = cursor.fetchall()
 
-    cursor.execute(
-        """
+    # BUDGET
+    cursor.execute("""
         SELECT amount
         FROM budget
         WHERE id = %s
-        """,
-        (user_id,)
-    )
+    """, (user_id,))
 
     budget = cursor.fetchone()
 
@@ -1536,7 +1500,6 @@ def chat():
             float(budget_amount),
 
         "categories": [
-
             {
                 "category":
                     row["category"],
@@ -1549,7 +1512,6 @@ def chat():
         ],
 
         "recent_expenses": [
-
             {
                 "date":
                     str(row["date"]),
@@ -1576,8 +1538,6 @@ def chat():
     return jsonify({
         "answer": answer
     })
-
-
 # ============================================================
 # ADD EXPENSE
 # ============================================================

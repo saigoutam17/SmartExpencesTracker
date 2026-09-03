@@ -14,15 +14,15 @@
         {% endblock %}
     </title>
 
-    <link rel="stylesheet"
-          href="static/style.css">
+   <link rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}">
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 </head>
 
 
-<body>
+<body >
 
 <div class="app-layout">
 
@@ -71,30 +71,29 @@
 
             </a>
 
-
-            <a href="/assistant" class="nav-link">
-
-                🤖
-                <span>AI Assistant</span>
-
-            </a>
-
+        <a href="/ai-analysis" class="nav-link">
+            🤖 AI Assistant
+        </a>
 
             <a href="/settings" class="nav-link">
 
                 ⚙️
                 <span>Settings</span>
 
-            </a>
-                    
         <div class="dashboard-card ai-card">
-            <h2>🤖 AI Financial Assistant</h2>
-            <p>Ask AI anything about your expenses, budget, and spending.</p>
 
-            <a href="/chat" class="nav-link">
-                Open AI Assistant →
-            </a>
-        </div>
+    <h2>🤖 AI Financial Assistant</h2>
+
+    <p>
+        Ask AI anything about your expenses,
+        budget, and spending.
+    </p>
+
+    <a href="/chat" class="nav-link">
+        Open AI Assistant →
+    </a>
+
+</div>
 
         </nav>
 
