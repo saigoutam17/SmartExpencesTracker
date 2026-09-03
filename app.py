@@ -77,7 +77,40 @@ def get_user_settings(user_id):
 
     return settings
 
+def currency_symbol(currency):
+    symbols = {
+        "INR": "₹",
+        "USD": "$",
+        "EUR": "€",
+        "GBP": "£",
+        "JPY": "¥"
+    }
 
+    return symbols.get(currency, "₹")
+@app.context_processor
+def inject_user_settings():
+
+    if "user_id" not in session:
+        return {
+            "settings": None,
+            "currency_symbol": "₹"
+        }
+
+    try:
+        settings = get_user_settings(session["user_id"])
+
+        currency = settings.get("currency", "INR")
+
+        return {
+            "settings": settings,
+            "currency_symbol": currency_symbol(currency)
+        }
+
+    except Exception:
+        return {
+            "settings": None,
+            "currency_symbol": "₹"
+        }
 # ============================================================
 # LOGIN REQUIRED
 # ============================================================
@@ -1244,7 +1277,7 @@ def suggest_expense_category():
 # AI ANALYSIS
 # ============================================================
 
-@app.route("/ai-analysis")
+@app.route("/assistant")
 @login_required
 def ai_analysis():
 
