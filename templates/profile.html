@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}
+Profile - SmartExpenseTracker
+{% endblock %}
+
+{% block heading %}
+Profile
+{% endblock %}
+
+{% block content %}
+
+<div class="profile-container">
+
+    <!-- PROFILE HEADER -->
+    <div class="profile-header">
+
+        <div class="profile-avatar">
+            {{ username[0]|upper }}
+        </div>
+
+        <div class="profile-info">
+            <h2>{{ username }}</h2>
+            <p>SmartExpenseTracker User</p>
+        </div>
+
+    </div>
+
+
+    <!-- PROFILE DETAILS -->
+    <div class="profile-card">
+
+        <h2>👤 Personal Information</h2>
+
+        <div class="profile-grid">
+
+            <div class="profile-field">
+                <label>Username</label>
+                <div class="profile-value">
+                    {{ username }}
+                </div>
+            </div>
+
+            <div class="profile-field">
+                <label>User ID</label>
+                <div class="profile-value">
+                    {{ user_id }}
+                </div>
+            </div>
+
+            <div class="profile-field">
+                <label>Account Status</label>
+                <div class="profile-value status-active">
+                    ● Active
+                </div>
+            </div>
+
+            <div class="profile-field">
+                <label>Account Type</label>
+                <div class="profile-value">
+                    Personal
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ACCOUNT FEATURES -->
+    <div class="profile-card">
+
+        <h2>⚡ Account Features</h2>
+
+        <div class="feature-list">
+
+            <div class="profile-feature">
+                <span class="feature-icon">💰</span>
+
+                <div>
+                    <strong>Expense Tracking</strong>
+                    <p>Track and manage your daily expenses.</p>
+                </div>
+
+                <span class="feature-status">Enabled</span>
+            </div>
+
+
+            <div class="profile-feature">
+                <span class="feature-icon">🤖</span>
+
+                <div>
+                    <strong>AI Assistant</strong>
+                    <p>Get intelligent financial insights.</p>
+                </div>
+
+                <span class="feature-status">Enabled</span>
+            </div>
+
+
+            <div class="profile-feature">
+                <span class="feature-icon">📊</span>
+
+                <div>
+                    <strong>Analytics</strong>
+                    <p>Analyze your spending patterns.</p>
+                </div>
+
+                <span class="feature-status">Enabled</span>
+            </div>
+
+
+            <div class="profile-feature">
+                <span class="feature-icon">☁️</span>
+
+                <div>
+                    <strong>Cloud Database</strong>
+                    <p>Your financial data is stored securely in the cloud.</p>
+                </div>
+
+                <span class="feature-status">Connected</span>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- QUICK ACTIONS -->
+    <div class="profile-card">
+
+        <h2>⚙️ Quick Actions</h2>
+
+        <div class="profile-actions">
+
+            <a href="/settings" class="profile-action">
+                ⚙️ Settings
+            </a>
+
+            <a href="/expenses" class="profile-action">
+                💳 View Expenses
+            </a>
+
+            <a href="/analytics" class="profile-action">
+                📊 View Analytics
+            </a>
+
+            <a href="/logout"
+               class="profile-action danger-action"
+               onclick="return confirm('Are you sure you want to logout?')">
+                🚪 Logout
+            </a>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
