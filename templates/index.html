@@ -18,7 +18,7 @@ Dashboard
     
 </div>
 
-    <h1>💰 Smart Expense Tracker</h1>
+    <h1> Smart Expense Tracker</h1>
 
     <p>Track your expenses easily</p>
 
@@ -30,7 +30,7 @@ Dashboard
 
     <div class="summary-card">
 
-        <h3>💰 Total Spent</h3>
+        <h3> Total Spent</h3>
 
         <h2>
             ₹{{ "%.2f"|format(total) }}
@@ -43,7 +43,7 @@ Dashboard
 
     <div class="summary-card">
 
-        <h3>📅 This Month</h3>
+        <h3> This Month</h3>
 
         <h2>
             ₹{{ "%.2f"|format(monthly_total) }}
@@ -56,7 +56,7 @@ Dashboard
 
     <div class="summary-card">
 
-        <h3>💵 Monthly Budget</h3>
+        <h3> Monthly Budget</h3>
 
         <h2>
             ₹{{ "%.2f"|format(budget_amount) }}
@@ -69,7 +69,7 @@ Dashboard
 
     <div class="summary-card">
 
-        <h3>💸 Remaining</h3>
+        <h3> Remaining</h3>
 
         {% if budget_amount > 0 %}
 
@@ -93,7 +93,7 @@ Dashboard
 
 <div class="insights-card">
 
-    <h2>🤖 Smart Insights</h2>
+    <h2> Smart Insights</h2>
 
     {% for insight in insights %}
 
@@ -110,7 +110,7 @@ Dashboard
 
 <div class="comparison-card">
 
-    <h2>📈 Spending Comparison</h2>
+    <h2> Spending Comparison</h2>
 
     <div class="comparison-row">
 
@@ -143,21 +143,21 @@ Dashboard
         {% if percentage_change > 0 %}
 
             <p>
-                📈 Spending increased by
+                 Spending increased by
                 {{ "%.1f"|format(percentage_change) }}%
             </p>
 
         {% elif percentage_change < 0 %}
 
             <p>
-                📉 Spending decreased by
+                 Spending decreased by
                 {{ "%.1f"|format(percentage_change|abs) }}%
             </p>
 
         {% else %}
 
             <p>
-                ➡️ Spending is the same as last month.
+                Spending is the same as last month.
             </p>
 
         {% endif %}
@@ -165,7 +165,7 @@ Dashboard
     {% else %}
 
         <p>
-            ℹ️ No spending data available for last month.
+             No spending data available for last month.
         </p>
 
     {% endif %}
@@ -197,7 +197,7 @@ Dashboard
 
 </div><div class="budget-card">
 
-    <h2>📊 Budget Usage</h2>
+    <h2>Budget Usage</h2>
 
     {% if budget_amount > 0 %}
 
@@ -249,48 +249,11 @@ Dashboard
     {% endif %}
 
 </div>
-<div class="budget-card">
-
-    <h2>📊 Budget Usage</h2>
-
-    {% if budget_amount > 0 %}
-
-        {% set percentage = (monthly_total / budget_amount * 100) %}
-
-        <h1>
-            {{ "%.1f"|format(percentage) }}%
-        </h1>
-
-        {% if percentage >= 100 %}
-
-            <p>🔴 Budget exceeded</p>
-
-        {% elif percentage >= 80 %}
-
-            <p>⚠️ You are close to your budget limit</p>
-
-        {% elif percentage >= 50 %}
-
-            <p>🟡 More than half of your budget is used</p>
-
-        {% else %}
-
-            <p>🟢 Your spending is under control</p>
-
-        {% endif %}
-
-    {% else %}
-
-        <p>Set a budget to see usage.</p>
-
-    {% endif %}
-
-</div>
     <!-- CATEGORY -->
 
     <div class="category-card">
 
-    <h2>📊 Spending by Category</h2>
+    <h2>Spending by Category</h2>
 
     {% if category_totals %}
 
@@ -470,13 +433,13 @@ Dashboard
 
     <h2>🔍 Search & Filter</h2>
 
-    <form action="/" method="GET">
+    <form action="/search" method="GET">
 
         <input
             type="text"
             name="search"
             placeholder="Search expenses..."
-            value="{{ search }}"
+            value=" {{ search_query or '' }}"
         >
 
 

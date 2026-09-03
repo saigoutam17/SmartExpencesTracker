@@ -622,13 +622,66 @@ def home():
 # ============================================================
 # EXPENSES PAGE
 # ============================================================
-
 @app.route("/expenses")
 @login_required
 def expenses_page():
 
-    return redirect("/")
+    search = request.args.get("search", "").strip()
+    category_filter = request.args.get("category", "").strip()
+    date_filter = request.args.get("date_filter", "").strip()
 
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    query = """
+        SELECT *
+        FROM expenses
+        WHERE user_id = %s
+    """
+
+    params = [session["user_id"]]
+
+    if search:
+        query += """
+            AND (
+                description ILIKE %s
+                OR category ILIKE %s
+            )
+        """
+        search_value = f"%{search}%"
+        params.extend([search_value, search_value])
+
+    if category_filter:
+        query += " AND category = %s"
+        params.append(category_filter)
+
+    if date_filter == "this_month":
+        query += """
+            AND date >= DATE_TRUNC('month', CURRENT_DATE)
+            AND date < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'
+        """
+
+    elif date_filter == "last_month":
+        query += """
+            AND date >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month'
+            AND date < DATE_TRUNC('month', CURRENT_DATE)
+        """
+
+    query += " ORDER BY date DESC, id DESC"
+
+    cursor.execute(query, tuple(params))
+    expenses = cursor.fetchall()
+
+    cursor.close()
+    connection.close()
+
+    return render_template(
+        "expenses.html",
+        expenses=expenses,
+        search=search,
+        category_filter=category_filter,
+        date_filter=date_filter
+    )
 
 # ============================================================
 # BUDGET
@@ -1081,6 +1134,15 @@ def settings():
 
         cursor.close()
         connection.close()
+
+@app.route("/profile")
+@login_required
+def profile():
+    return render_template(
+        "profile.html",
+        username=session.get("username"),
+        user_id=session.get("user_id")
+    )
 # ============================================================
 # AI CATEGORY
 # ============================================================
