@@ -1358,7 +1358,7 @@ def ai_analysis():
     )
 
     return render_template(
-        "ai_analysis.html",
+        "assistant.html",
         analysis=analysis
     )
 
