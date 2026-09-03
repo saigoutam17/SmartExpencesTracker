@@ -10,7 +10,7 @@ Dashboard
 
 {% block content %}
 <div style="display:flex; justify-content:space-between; align-items:center;">
-    <h2>Welcome, {{ username }} 👋</h2>
+    <h2>Welcome, {{ username }} </h2>
 
     <a href="/logout">
         <button type="button">Logout</button>
@@ -426,6 +426,14 @@ Dashboard
 
     </div>
 
+</div>
+<div class="dashboard-card ai-card">
+    <h2>🤖 AI Financial Assistant</h2>
+    <p>Ask AI anything about your expenses, budget, and spending.</p>
+
+    <a href="/chat" class="dashboard-btn">
+        Open AI Assistant →
+    </a>
 </div>
 <!-- SEARCH AND FILTER -->
 
