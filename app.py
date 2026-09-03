@@ -1279,7 +1279,7 @@ def suggest_expense_category():
 
 @app.route("/assistant")
 @login_required
-def ai_analysis():
+def assistant():
 
     user_settings = get_user_settings(
         session["user_id"]
