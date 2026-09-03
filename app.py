@@ -1366,17 +1366,25 @@ def ai_analysis():
 # ============================================================
 # AI CHATBOT
 # ============================================================
+# ============================================================
+# AI CHATBOT
+# ============================================================
 
 @app.route(
     "/chat",
-    methods=["POST"]
+    methods=["GET", "POST"]
 )
 @login_required
 def chat():
 
+    if request.method == "GET":
+        return render_template("chat.html")
+
     user_settings = get_user_settings(
         session["user_id"]
     )
+
+    # DON'T DELETE THE REST OF YOUR EXISTING CHAT CODE
 
     if user_settings:
 
