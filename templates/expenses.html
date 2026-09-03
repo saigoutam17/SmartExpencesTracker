@@ -12,7 +12,7 @@ Expenses
 
 <div class="expense-form">
 
-    <h2>➕ Add Expense</h2>
+    <h2> Add Expense</h2>
 
     <form action="/add" method="POST">
 
@@ -55,7 +55,7 @@ Expenses
     type="button"
     onclick="suggestCategory()"
 >
-    🤖 Suggest Category
+     Suggest Category
 </button>
 
 
@@ -78,10 +78,10 @@ Expenses
 
 <div class="expense-form">
 
-    <h2>📷 Scan Receipt</h2>
+    <h2> Scan Receipt</h2>
 
     <form
-        action="/scan-receipt"
+        action="/scanreceipt"
         method="POST"
         enctype="multipart/form-data"
     >
@@ -94,7 +94,7 @@ Expenses
         >
 
         <button type="submit">
-            🤖 Scan Receipt
+             Scan Receipt
         </button>
 
     </form>
@@ -102,7 +102,7 @@ Expenses
 </div>
 <div class="filter-card">
 
-    <h2>🔍 Search & Filter</h2>
+    <h2> Search & Filter</h2>
 
     <form action="/expenses" method="GET">
 
@@ -177,7 +177,7 @@ Expenses
 
 <div class="expense-list">
 
-    <h2>💳 All Expenses</h2>
+    <h2> All Expenses</h2>
 
     {% if expenses %}
 
@@ -216,7 +216,7 @@ Expenses
             <td>
 
                 <a href="/edit/{{ expense['id'] }}">
-                    ✏️ Edit
+                     Edit
                 </a>
 
                 |
@@ -225,7 +225,7 @@ Expenses
                     href="/delete/{{ expense['id'] }}"
                     onclick="return confirm('Are you sure you want to delete this expense?')"
                 >
-                    🗑️ Delete
+                     Delete
                 </a>
 
             </td>

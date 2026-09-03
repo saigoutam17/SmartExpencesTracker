@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Scan Receipt{% endblock %}
+
+{% block heading %}Receipt Scanner{% endblock %}
+
+{% block content %}
+
+<div class="receipt-card">
+
+    <h2>🧾 Scan Your Receipt</h2>
+
+    <p>
+        Upload a receipt image and SmartExpense will try to
+        extract the total amount automatically.
+    </p>
+
+    <form action="/scan-receipt" method="POST" enctype="multipart/form-data">
+
+        <div class="upload-box">
+            <input
+                type="file"
+                name="receipt"
+                accept="image/*"
+                required
+            >
+        </div>
+
+        <button type="submit">
+            🔍 Scan Receipt
+        </button>
+
+    </form>
+
+    {% if result %}
+
+    <div class="receipt-result">
+
+        <h3>✅ Scan Result</h3>
+
+        <p>
+            <strong>Amount:</strong>
+            ₹{{ result.amount }}
+        </p>
+
+        <h4>Extracted Text</h4>
+
+        <pre>{{ result.text }}</pre>
+
+    </div>
+
+    {% endif %}
+
+    {% if error %}
+
+    <div class="error-message">
+        ❌ {{ error }}
+    </div>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}
