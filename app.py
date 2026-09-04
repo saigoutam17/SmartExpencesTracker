@@ -6,7 +6,11 @@ from flask import (
     jsonify,
     session
 )
+import os
+from flask import request, render_template
+from werkzeug.utils import secure_filename
 
+from ai.receipt import extract_receipt
 from functools import wraps
 
 from werkzeug.security import (
@@ -1377,10 +1381,7 @@ def ai_analysis():
         "ai-analysis.html",
         analysis=analysis
     )
-@app.route(
-    "/chat",
-    methods=["GET", "POST"]
-)
+@app.route("/chat",methods=["GET", "POST"])
 @login_required
 def assistant():
 
@@ -1949,7 +1950,54 @@ def page_not_found(error):
 @app.errorhandler(500)
 def internal_server_error(error):
     return render_template("500.html"), 500
+@app.route("/scan-receipt", methods=["GET", "POST"])
+@login_required
+def scan_receipt():
 
+    if request.method == "GET":
+        return render_template("scan_receipt.html")
+
+    if "receipt" not in request.files:
+        return render_template(
+            "scan_receipt.html",
+            error="Please select a receipt image."
+        )
+
+    file = request.files["receipt"]
+
+    if file.filename == "":
+        return render_template(
+            "scan_receipt.html",
+            error="Please select a receipt image."
+        )
+
+    upload_folder = "uploads"
+    os.makedirs(upload_folder, exist_ok=True)
+
+    filename = secure_filename(file.filename)
+    file_path = os.path.join(upload_folder, filename)
+
+    file.save(file_path)
+
+    try:
+        result = extract_receipt(file_path)
+
+        return render_template(
+            "scan_receipt.html",
+            result=result
+        )
+
+    except Exception as e:
+        print("RECEIPT SCANNER ERROR:", e)
+
+        return render_template(
+            "scan_receipt.html",
+            error="Unable to scan the receipt."
+        )
+
+    finally:
+        if os.path.exists(file_path):
+            os.remove(file_path)
 # ============================================================
 # START APP
 # ============================================================

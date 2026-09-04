@@ -286,75 +286,6 @@ Dashboard
     {% endif %}
 
 </div>
-    
-
-    <!-- ADD EXPENSE -->
-
-    <div class="expense-form">
-
-        <h2>Add Expense</h2>
-
-        <form action="/add" method="POST">
-
-            <label>Amount</label>
-
-            <input
-                type="number"
-                name="amount"
-                placeholder="Enter amount"
-                step="0.01"
-                required
-            >
-
-
-            <label>Category</label>
-
-            <select name="category" required>
-
-                <option value="">Select Category</option>
-
-                <option value="Food">Food</option>
-
-                <option value="Travel">Travel</option>
-
-                <option value="Shopping">Shopping</option>
-
-                <option value="Bills">Bills</option>
-
-                <option value="Education">Education</option>
-
-                <option value="Other">Other</option>
-
-            </select>
-
-
-            <label>Description</label>
-
-            <input
-                type="text"
-                name="description"
-                placeholder="What did you spend on?"
-            >
-
-
-            <label>Date</label>
-
-            <input
-                type="date"
-                name="date"
-                required
-            >
-
-
-            <button type="submit">
-                Add Expense
-            </button>
-
-        </form>
-
-    </div>
-
-
     <!-- EXPENSE LIST -->
 
     <div class="expense-list">
@@ -519,7 +450,7 @@ Dashboard
 </div>
 <script>
 
-    const chartCanvas = document.getElementById("categoryChart");
+const chartCanvas = document.getElementById("categoryChart");
 
     if (chartCanvas) {
 
