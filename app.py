@@ -12,6 +12,7 @@ from werkzeug.utils import secure_filename
 
 from ai.receipt import extract_receipt
 from functools import wraps
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 from werkzeug.security import (
     generate_password_hash,
@@ -38,7 +39,7 @@ load_dotenv()
 app = Flask(__name__)
 
 app.secret_key = os.getenv(
-    "FLASK_SECRET_KEY",
+    "SmartExpenseTracker@2026",
     "SmartExpenseTracker@2026"
 )
 
@@ -1875,6 +1876,7 @@ def api_get_expense(id):
 @app.route(
     "/api/expenses",
     methods=["POST"]
+
 )
 @login_required
 def api_create_expense():
@@ -1941,7 +1943,7 @@ def api_create_expense():
         "id":
             expense_id
 
-    }), 201
+    }), 201   
 @app.errorhandler(404)
 def page_not_found(error):
     return render_template("404.html"), 404
